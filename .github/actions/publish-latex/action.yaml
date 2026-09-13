@@ -15,6 +15,10 @@ inputs:
     description: "enable kubernetes mode, meaning that this action run on a host with ARC kubernetes mode"
     required: false
     default: "false"
+  use-unified-semantic-version:
+    description: "Use unified semantic release version"
+    required: false
+    default: "true"
 
 # ===========================================================================
 # Required Permission
@@ -60,13 +64,18 @@ runs:
         onepass-token: ${{ inputs.onepass-token }}
 
     # 4. Release (Semantic Release will likely run latex build plugins here)
+    - name: Install Semantic Release
+      description: "Override Sementic Release Version"
+      if: ${{ inputs.use-unified-semantic-version == 'true' }}
+      uses: stone-home/Action-Stone-DevOps/.github/actions/install-semantic-release@trunk
+
     - name: Fetch DevOps scripts
       uses: actions/checkout@v4
       with:
         repository: stone-home/Action-Stone-DevOps
         ref: trunk
         path: .devops
-
+    
     - name: Semantic Release
       shell: bash
       run: npx semantic-release@25.0.2

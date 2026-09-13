@@ -26,41 +26,41 @@ done
 
 # ---- validate ----
 : "${PROJECT_ROOT:?--root is required}"
-cd "$PROJECT_ROOT"
+cd "${PROJECT_ROOT}"
 
-BUILD_DIR="${$PROJECT_ROOT}/build"
-DIST_DIR="${$PROJECT_ROOT}/dist"
+BUILD_DIR="${PROJECT_ROOT}/build"
+DIST_DIR="${PROJECT_ROOT}/dist"
 
 echo "🔨 Building LaTeX document..."
-mkdir -p "$BUILD_DIR" "$DIST_DIR"
+mkdir -p "${BUILD_DIR}" "${DIST_DIR}"
 
 # Copy files to build directory
-cp -r *.tex "$BUILD_DIR/" 2>/dev/null || true
-cp -r *.bib "$BUILD_DIR/" 2>/dev/null || true
-cp -r *.cls "$BUILD_DIR/" 2>/dev/null || true
-cp -r *.sty "$BUILD_DIR/" 2>/dev/null || true
-cp -r assets "$BUILD_DIR/" 2>/dev/null || true
-cp -r chapters "$BUILD_DIR/" 2>/dev/null || true
+cp -r *.tex "${BUILD_DIR}/" 2>/dev/null || true
+cp -r *.bib "${BUILD_DIR}/" 2>/dev/null || true
+cp -r *.cls "${BUILD_DIR}/" 2>/dev/null || true
+cp -r *.sty "${BUILD_DIR}/" 2>/dev/null || true
+cp -r assets "${BUILD_DIR}/" 2>/dev/null || true
+cp -r chapters "${BUILD_DIR}/" 2>/dev/null || true
 
-cd "$BUILD_DIR"
+cd "${BUILD_DIR}"
 
 # Compile PDF
-pdflatex -interaction=nonstopmode "$MAIN_FILE.tex" || true
-bibtex "$MAIN_FILE" || true
-pdflatex -interaction=nonstopmode "$MAIN_FILE.tex" || true
-pdflatex -interaction=nonstopmode "$MAIN_FILE.tex"
+pdflatex -interaction=nonstopmode "${MAIN_FILE}.tex" || true
+bibtex "${MAIN_FILE}" || true
+pdflatex -interaction=nonstopmode "${MAIN_FILE}.tex" || true
+pdflatex -interaction=nonstopmode "${MAIN_FILE}.tex"
 
 # Generate expanded TeX
 if command -v latexpand &> /dev/null; then
-    latexpand --expand-bbl "$MAIN_FILE.bbl" "$MAIN_FILE.tex" > "$MAIN_FILE"_expanded.tex
+    latexpand --expand-bbl "${MAIN_FILE}.bbl" "${MAIN_FILE}.tex" > "${MAIN_FILE}"_expanded.tex
 else
-    cp "$MAIN_FILE.tex" "$MAIN_FILE"_expanded.tex
+    cp "${MAIN_FILE}.tex" "${MAIN_FILE}"_expanded.tex
 fi
 
 # Copy to dist
 cd ..
-cp "$BUILD_DIR/$MAIN_FILE.pdf" "$DIST_DIR/"
-cp "$BUILD_DIR/$MAIN_FILE.bbl" "$DIST_DIR/" 2>/dev/null || touch "$DIST_DIR/$MAIN_FILE.bbl"
-cp "$BUILD_DIR/$MAIN_FILE"_expanded.tex "$DIST_DIR/"
+cp "${BUILD_DIR}/${MAIN_FILE}.pdf" "${DIST_DIR}/"
+cp "${BUILD_DIR}/${MAIN_FILE}.bbl" "${DIST_DIR}/" 2>/dev/null || touch "${DIST_DIR}/${MAIN_FILE}.bbl"
+cp "${BUILD_DIR}/${MAIN_FILE}"_expanded.tex "${DIST_DIR}/"
 
 echo "✅ Build complete!"

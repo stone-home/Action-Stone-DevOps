@@ -44,15 +44,15 @@ done
 : "${REPO_OWNER:?--owner is required}"
 : "${REPO_NAME:?--repo is required}"
 : "${OUTPUT_NAME:=diff-${COMPARE_VERSION}-to-${CURRENT_VERSION}}"
-cd "$PROJECT_ROOT"
+cd "${PROJECT_ROOT}"
 
 echo "📊 Starting diff comparison..."
-echo "Current version: $CURRENT_VERSION"
-echo "Compare version: $COMPARE_VERSION"
-echo "Repository: $REPO_OWNER/$REPO_NAME"
+echo "Current version: ${CURRENT_VERSION}"
+echo "Compare version: ${COMPARE_VERSION}"
+echo "Repository: ${REPO_OWNER}/${REPO_NAME}"
 
 WORK_DIR="${PROJECT_ROOT}/dist"
-mkdir -p "$WORK_DIR"
+mkdir -p "${WORK_DIR}"
 
 echo "📦 Working in directory: $(pwd)"
 
@@ -64,17 +64,17 @@ download_release_file() {
     local filename=$4
     local output_dir=$5
 
-    echo "Downloading $filename from $repo_owner/$repo_name version $version..."
+    echo "Downloading ${filename} from ${repo_owner}/${repo_name} version ${version}..."
 
-    bash "$SCRIPT_DIR/download-release-file.sh" \
+    bash "${SCRIPT_DIR}/download-release-file.sh" \
         --owner "${repo_owner}" --repo "${repo_name}" \
         --version "${version}" --asset "${filename}" --output "${output_dir}" || return 1
 
-    if [ -f "$output_dir/$filename" ]; then
-        echo "✅ Successfully downloaded $filename"
+    if [ -f "${output_dir}/${filename}" ]; then
+        echo "✅ Successfully downloaded ${filename}"
         return 0
     else
-        echo "❌ Failed to download $filename"
+        echo "❌ Failed to download ${filename}"
         return 1
     fi
 }
@@ -88,31 +88,31 @@ LOG_FILE="${WORK_DIR}/compare.log"
 
 echo "📥 Preparing All Comparisons..."
 
-if [ "$CURRENT_VERSION" = "null" ]; then
+if [ "${CURRENT_VERSION}" = "null" ]; then
     echo "⚠️ Current version is 'null', using local source file for comparison"
     echo "🔄 Building current version file (main_expanded.tex)..."
-    bash "$SCRIPT_DIR/build.sh" --root "$PROJECT_ROOT" > ${LOG_FILE} 2>&1
+    bash "${SCRIPT_DIR}/build.sh" --root "${PROJECT_ROOT}" > ${LOG_FILE} 2>&1
     CURRENT_FILE="main_expanded.tex"
 else
-    echo "🔄 Preparing current version file ($CURRENT_FILE)..."
-    if ! download_release_file "$REPO_OWNER" "$REPO_NAME" "$CURRENT_VERSION" "$CURRENT_FILE" "./${WORK_DIR}"; then
-        echo "❌ Failed to download current version file ($CURRENT_FILE)"
+    echo "🔄 Preparing current version file (${CURRENT_FILE})..."
+    if ! download_release_file "${REPO_OWNER}" "${REPO_NAME}" "${CURRENT_VERSION}" "${CURRENT_FILE}" "${WORK_DIR}"; then
+        echo "❌ Failed to download current version file (${CURRENT_FILE})"
         exit 1
     fi
 fi
 
-echo "🔄 Preparing comparison version file ($COMPARE_FILE)..."
-if ! download_release_file "$REPO_OWNER" "$REPO_NAME" "$COMPARE_VERSION" "$COMPARE_FILE" "./${WORK_DIR}"; then
-    echo "❌ Failed to download comparison version file ($COMPARE_FILE)"
+echo "🔄 Preparing comparison version file (${COMPARE_FILE})..."
+if ! download_release_file "${REPO_OWNER}" "${REPO_NAME}" "${COMPARE_VERSION}" "${COMPARE_FILE}" "${WORK_DIR}"; then
+    echo "❌ Failed to download comparison version file (${COMPARE_FILE})"
     exit 1
 fi
 
 echo "📝 All files prepared successfully!"
 
-if [ "$CURRENT_VERSION" = "null" ]; then
-    echo "📊 Comparing: $COMPARE_VERSION → current source"
+if [ "${CURRENT_VERSION}" = "null" ]; then
+    echo "📊 Comparing: ${COMPARE_VERSION} → current source"
 else
-    echo "📊 Comparing: $COMPARE_VERSION → $CURRENT_VERSION"
+    echo "📊 Comparing: ${COMPARE_VERSION} → ${CURRENT_VERSION}"
 fi
 
 if ! command -v latexdiff &> /dev/null; then
@@ -125,13 +125,13 @@ if ! command -v latexdiff &> /dev/null; then
 fi
 
 # Generate diff
-cp -r *.bib "$WORK_DIR/" 2>/dev/null || true
-cp -r *.cls "$WORK_DIR/" 2>/dev/null || true
-cp -r *.sty "$WORK_DIR/" 2>/dev/null || true
-cp -r assets "$WORK_DIR/" 2>/dev/null || true
-cd "$WORK_DIR"
+cp -r *.bib "${WORK_DIR}/" 2>/dev/null || true
+cp -r *.cls "${WORK_DIR}/" 2>/dev/null || true
+cp -r *.sty "${WORK_DIR}/" 2>/dev/null || true
+cp -r assets "${WORK_DIR}/" 2>/dev/null || true
+cd "${WORK_DIR}"
 echo "🔍 Generating LaTeX diff..."
-if latexdiff --flatten -L "$(date)|${COMPARE_VERSION}->${CURRENT_VERSION}" "$COMPARE_FILE" "$CURRENT_FILE" > "$DIFF_FILE"; then
+if latexdiff --flatten -L "$(date)|${COMPARE_VERSION}->${CURRENT_VERSION}" "${COMPARE_FILE}" "${CURRENT_FILE}" > "${DIFF_FILE}"; then
     echo "✅ LaTeX diff generated successfully!"
 else
     echo "⚠️  Warning: latexdiff encountered some issues, but diff file may still be usable"
@@ -139,22 +139,26 @@ fi
 
 if ! command -v pdflatex &> /dev/null; then
     echo "⚠️  pdflatex is not available. Diff LaTeX file created but PDF will not be generated."
-    echo "LaTeX diff file: $(pwd)/$DIFF_FILE"
+    echo "LaTeX diff file: $(pwd)/${DIFF_FILE}"
 else
     echo "📄 Compiling diff PDF..."
-    pdflatex -interaction=nonstopmode "$DIFF_FILE" > pdflatex1.log 2>&1 || true
-    pdflatex -interaction=nonstopmode "$DIFF_FILE" > pdflatex2.log 2>&1 || true
-    echo "🎉 Diff PDF generated successfully!"
-    echo "📄 PDF file: $(pwd)/$DIFF_PDF"
+    pdflatex -interaction=nonstopmode "${DIFF_FILE}" > pdflatex1.log 2>&1 || true
+    pdflatex -interaction=nonstopmode "${DIFF_FILE}" > pdflatex2.log 2>&1 || true
+    if [ -f "${DIFF_PDF}" ]; then
+        echo "🎉 Diff PDF generated successfully!"
+        echo "📄 PDF file: $(pwd)/${DIFF_PDF}"
+    else
+        echo "⚠️  Diff PDF was not generated (pdflatex failed). See pdflatex1.log / pdflatex2.log"
+    fi
 fi
 
 # Summary
 echo ""
 echo "📋 Summary:"
 echo "  Working directory: $(pwd)"
-echo "  LaTeX diff file: $DIFF_FILE"
-if [ -f "$DIFF_PDF" ]; then
-    echo "  PDF diff file: $DIFF_PDF"
+echo "  LaTeX diff file: ${DIFF_FILE}"
+if [ -f "${DIFF_PDF}" ]; then
+    echo "  PDF diff file: ${DIFF_PDF}"
 fi
 
 cd ..

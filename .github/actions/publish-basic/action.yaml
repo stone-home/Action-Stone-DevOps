@@ -16,6 +16,10 @@ inputs:
     description: "enable kubernetes mode, meaning that this action run on a host with ARC kubernetes mode"
     required: false
     default: "false"
+  use-unified-semantic-version:
+    description: "Use unified semantic release version"
+    required: false
+    default: "true"
 
 # ===========================================================================
 # Required Permission
@@ -45,6 +49,11 @@ runs:
         secret-path: ${{ inputs.github-token-path }}
         kubernetes-mode: ${{ inputs.kubernetes-mode }}
         onepass-token: ${{ inputs.onepass-token }}
+    
+    - name: Install Semantic Release
+      description: "Override Sementic Release Version"
+      if: ${{ inputs.use-unified-semantic-version == 'true' }}
+      uses: stone-home/Action-Stone-DevOps/.github/actions/install-semantic-release@trunk
 
     - name: Semantic Release
       shell: bash

@@ -26,12 +26,12 @@ done
 
 # ---- validate ----
 : "${PROJECT_ROOT:?--root is required}"
-cd "$PROJECT_ROOT"
+cd "${PROJECT_ROOT}"
 
 echo "✔️ Validating LaTeX project..."
 
-if [ ! -f "$MAIN_FILE.tex" ]; then
-    echo "❌ $MAIN_FILE.tex not found"
+if [ ! -f "${MAIN_FILE}.tex" ]; then
+    echo "❌ ${MAIN_FILE}.tex not found"
     exit 1
 fi
 

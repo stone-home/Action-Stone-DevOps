@@ -40,7 +40,7 @@ done
 : "${VERSION:?--version is required}"
 : "${ASSET_NAME:?--asset is required}"
 
-echo "🚀 Attempting to download '$ASSET_NAME' from release $VERSION of $REPO_OWNER/$REPO_NAME..."
+echo "🚀 Attempting to download '${ASSET_NAME}' from release ${VERSION} of ${REPO_OWNER}/${REPO_NAME}..."
 
 # Ensure jq is installed
 if ! command -v jq &> /dev/null; then
@@ -64,15 +64,15 @@ CURL_OUTPUT=$(curl -sSL -w "%{http_code}" -H "Accept: application/vnd.github.v3+
 HTTP_STATUS=$(echo "${CURL_OUTPUT}" | tail -n1)
 RESPONSE=$(echo "${CURL_OUTPUT}" | sed '$d')
 
-if [ "$HTTP_STATUS" == "404" ]; then
-    echo "❌ Error: Release for version '$VERSION' not found."
+if [ "${HTTP_STATUS}" == "404" ]; then
+    echo "❌ Error: Release for version '${VERSION}' not found."
     exit 1
 fi
 
 ASSET_ID=$(echo "${RESPONSE}" | jq --raw-output ".assets[]? | select(.name == \"${ASSET_NAME}\") | .id")
 
-if [ -z "$ASSET_ID" ] || [ "$ASSET_ID" == "null" ]; then
-    echo "❌ Error: Asset '$ASSET_NAME' not found for version v$VERSION."
+if [ -z "${ASSET_ID}" ] || [ "${ASSET_ID}" == "null" ]; then
+    echo "❌ Error: Asset '${ASSET_NAME}' not found for version v${VERSION}."
     exit 1
 fi
 
