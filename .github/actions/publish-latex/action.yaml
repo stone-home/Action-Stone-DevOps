@@ -65,7 +65,6 @@ runs:
 
     # 4. Release (Semantic Release will likely run latex build plugins here)
     - name: Install Semantic Release
-      description: "Override Sementic Release Version"
       if: ${{ inputs.use-unified-semantic-version == 'true' }}
       uses: stone-home/Action-Stone-DevOps/.github/actions/install-semantic-release@trunk
 
@@ -78,6 +77,6 @@ runs:
     
     - name: Semantic Release
       shell: bash
-      run: npx semantic-release@25.0.2
+      run: npx semantic-release
       env:
         GITHUB_TOKEN: ${{ steps.get-token.outputs.token }}

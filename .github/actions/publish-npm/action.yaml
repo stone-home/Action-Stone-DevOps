@@ -71,13 +71,12 @@ runs:
         npm run build
       
     - name: Install Semantic Release
-      description: "Override Sementic Release Version"
       if: ${{ inputs.use-unified-semantic-version == 'true' }}
       uses: stone-home/Action-Stone-DevOps/.github/actions/install-semantic-release@trunk
 
     - name: Semantic Release
       shell: bash
-      run: npx semantic-release@25.0.2
+      run: npx semantic-release
       env:
         GITHUB_TOKEN: ${{ steps.get-token.outputs.token }}
         NPM_TOKEN: ${{ inputs.enable-trusted-publisher == 'true' && 'dummy_token' || steps.get-npm-token.outputs.token}}
