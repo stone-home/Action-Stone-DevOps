@@ -44,6 +44,18 @@ cp -r chapters "${BUILD_DIR}/" 2>/dev/null || true
 
 cd "${BUILD_DIR}"
 
+if command -v ures-bib &> /dev/null; then
+    if [[ -f "${PROJECT_ROOT}/bibstyle.json" ]]; then
+        cp "${PROJECT_ROOT}/bibstyle.json" "${BUILD_DIR}/"
+    fi
+    shopt -s nullglob
+    for bib in *.bib; do
+        echo "📚 Formatting ${bib} with ures-bib..."
+        ures-bib format "${bib}" --profile "${BIB_PROFILE:-library}"
+    done
+    shopt -u nullglob
+fi
+
 # Compile PDF
 pdflatex -interaction=nonstopmode "${MAIN_FILE}.tex" || true
 bibtex "${MAIN_FILE}" || true
