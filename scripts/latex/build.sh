@@ -52,6 +52,7 @@ if command -v ures-bib &> /dev/null; then
     for bib in *.bib; do
         echo "📚 Formatting ${bib} with ures-bib..."
         ures-bib format "${bib}" --profile "${BIB_PROFILE:-library}"
+        cp "${bib}" "${DIST_DIR}/"
     done
     shopt -u nullglob
 fi
