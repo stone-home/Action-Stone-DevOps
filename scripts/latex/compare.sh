@@ -91,7 +91,11 @@ echo "📥 Preparing All Comparisons..."
 if [ "${CURRENT_VERSION}" = "null" ]; then
     echo "⚠️ Current version is 'null', using local source file for comparison"
     echo "🔄 Building current version file (main_expanded.tex)..."
-    bash "${SCRIPT_DIR}/build.sh" --root "${PROJECT_ROOT}" > ${LOG_FILE} 2>&1
+    if ! bash "${SCRIPT_DIR}/build.sh" --root "${PROJECT_ROOT}" > "${LOG_FILE}" 2>&1; then
+        echo "❌ build.sh failed. Dump of ${LOG_FILE}:" >&2
+        cat "${LOG_FILE}" >&2 || true
+        exit 1
+    fi
     CURRENT_FILE="main_expanded.tex"
 else
     echo "🔄 Preparing current version file (${CURRENT_FILE})..."

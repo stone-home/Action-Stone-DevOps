@@ -41,6 +41,23 @@ compile_pdf() {
     pdflatex -interaction=nonstopmode "${MAIN_FILE}.tex"
 }
 
+# Names from \bibdata{foo,bar} in the aux produced by pass 1.
+bibs_from_aux() {
+    local aux="$1"
+    local line inner name
+    BIBS=()
+    while IFS= read -r line; do
+        inner="${line#*\\bibdata\{}"
+        inner="${inner%%\}*}"
+        inner="${inner// /}"
+        IFS=',' read -ra names <<< "${inner}"
+        for name in "${names[@]}"; do
+            [[ -z "${name}" ]] && continue
+            BIBS+=("${name}.bib")
+        done
+    done < <(grep -oE '\\bibdata\{[^}]+\}' "${aux}" || true)
+}
+
 echo "🔨 Building LaTeX document..."
 mkdir -p "${BUILD_DIR}" "${DIST_DIR}"
 
@@ -61,12 +78,13 @@ if command -v ures-bib &> /dev/null && [[ -f "${MAIN_FILE}.aux" ]]; then
     if [[ -f "${PROJECT_ROOT}/bibstyle.json" ]]; then
         cp "${PROJECT_ROOT}/bibstyle.json" "${BUILD_DIR}/"
     fi
-    shopt -s nullglob
-    bibs=( *.bib )
-    shopt -u nullglob
+    bibs_from_aux "${MAIN_FILE}.aux"
     formatted_any=0
-    for bib in "${bibs[@]}"; do
-        [[ "${bib}" == *.formatted.bib ]] && continue
+    for bib in "${BIBS[@]}"; do
+        if [[ ! -f "${bib}" ]]; then
+            echo "❌ \\bibdata names ${bib}, but that file is not in the build directory" >&2
+            exit 1
+        fi
         out="${bib%.bib}.formatted.bib"
         echo "📚 Formatting ${bib} with ures-bib (--aux ${MAIN_FILE}.aux)..."
         ures-bib format "${bib}" \
