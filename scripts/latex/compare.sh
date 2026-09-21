@@ -129,7 +129,12 @@ if ! command -v latexdiff &> /dev/null; then
 fi
 
 # Generate diff
-cp -r *.bib "${WORK_DIR}/" 2>/dev/null || true
+# Do not overwrite a .bib that build.sh already placed in dist/ (formatted).
+for bib in *.bib; do
+    [[ -f "${bib}" ]] || continue
+    [[ -e "${WORK_DIR}/${bib}" ]] && continue
+    cp "${bib}" "${WORK_DIR}/"
+done
 cp -r *.cls "${WORK_DIR}/" 2>/dev/null || true
 cp -r *.sty "${WORK_DIR}/" 2>/dev/null || true
 cp -r assets "${WORK_DIR}/" 2>/dev/null || true
