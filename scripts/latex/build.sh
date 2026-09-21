@@ -18,6 +18,9 @@ build.sh — compile the LaTeX document; output goes to <root>/dist/
 Usage: build.sh --root DIR [--filename NAME]
   --root DIR        Project root (required), where main.tex lives
   --filename NAME   Main file name without extension (default: main)
+
+When ures-bib is available: full compile with the original .bib (to write .aux),
+then format cited entries to a new file, replace the build copy, and compile again.
 EOF
             exit 0 ;;
         *) echo "❌ unknown arg: $1" >&2; exit 1 ;;
@@ -30,6 +33,13 @@ cd "${PROJECT_ROOT}"
 
 BUILD_DIR="${PROJECT_ROOT}/build"
 DIST_DIR="${PROJECT_ROOT}/dist"
+
+compile_pdf() {
+    pdflatex -interaction=nonstopmode "${MAIN_FILE}.tex" || true
+    bibtex "${MAIN_FILE}" || true
+    pdflatex -interaction=nonstopmode "${MAIN_FILE}.tex" || true
+    pdflatex -interaction=nonstopmode "${MAIN_FILE}.tex"
+}
 
 echo "🔨 Building LaTeX document..."
 mkdir -p "${BUILD_DIR}" "${DIST_DIR}"
@@ -44,24 +54,34 @@ cp -r chapters "${BUILD_DIR}/" 2>/dev/null || true
 
 cd "${BUILD_DIR}"
 
-if command -v ures-bib &> /dev/null; then
+echo "📄 Pass 1: compile with original bibliography..."
+compile_pdf
+
+if command -v ures-bib &> /dev/null && [[ -f "${MAIN_FILE}.aux" ]]; then
     if [[ -f "${PROJECT_ROOT}/bibstyle.json" ]]; then
         cp "${PROJECT_ROOT}/bibstyle.json" "${BUILD_DIR}/"
     fi
     shopt -s nullglob
-    for bib in *.bib; do
-        echo "📚 Formatting ${bib} with ures-bib..."
-        ures-bib format "${bib}" --profile "${BIB_PROFILE:-library}"
-        cp "${bib}" "${DIST_DIR}/"
-    done
+    bibs=( *.bib )
     shopt -u nullglob
+    formatted_any=0
+    for bib in "${bibs[@]}"; do
+        [[ "${bib}" == *.formatted.bib ]] && continue
+        out="${bib%.bib}.formatted.bib"
+        echo "📚 Formatting ${bib} with ures-bib (--aux ${MAIN_FILE}.aux)..."
+        ures-bib format "${bib}" \
+            --aux "${MAIN_FILE}.aux" \
+            --output "${out}" \
+            --profile "${BIB_PROFILE:-library}"
+        cp "${out}" "${DIST_DIR}/${bib}"
+        cp "${out}" "${bib}"
+        formatted_any=1
+    done
+    if [[ "${formatted_any}" -eq 1 ]]; then
+        echo "📄 Pass 2: compile with formatted bibliography..."
+        compile_pdf
+    fi
 fi
-
-# Compile PDF
-pdflatex -interaction=nonstopmode "${MAIN_FILE}.tex" || true
-bibtex "${MAIN_FILE}" || true
-pdflatex -interaction=nonstopmode "${MAIN_FILE}.tex" || true
-pdflatex -interaction=nonstopmode "${MAIN_FILE}.tex"
 
 # Generate expanded TeX
 if command -v latexpand &> /dev/null; then
