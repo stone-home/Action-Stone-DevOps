@@ -1,0 +1,24 @@
+% Test fixture: a document that uses a custom bibliography style.
+% A complete standalone document. It exists so a test can prove that a .bst in the
+% project root reaches the build sandbox: bibtex can only resolve
+% \bibliographystyle{fixturestyle} if fixturestyle.bst was copied alongside the source.
+\documentclass[11pt]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+
+\title{A Fixture Paper With a Custom Bibliography Style}
+\author{Fixture Author}
+\date{}
+
+\begin{document}
+\maketitle
+
+\section{Citations}
+Three works, formatted by the project's own style file
+\cite{paszkePyTorchImperativeStyle2019, carrionKubernetesSchedulingTaxonomy2022,
+      grattafioriLlama3Herd2024}.
+
+\bibliographystyle{fixturestyle}
+\bibliography{refs}
+
+\end{document}

@@ -1,50 +1,57 @@
 #!/bin/bash
+# Compile one LaTeX document into <root>/dist/.
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${SCRIPT_DIR}/_common.sh"
 
 # ---- defaults ----
-PROJECT_ROOT=""
+ROOT_ARG=""
 MAIN_FILE="${MAIN_FILE:-main}"
+OUTPUT_NAME=""
+BIB_NAME=""
 
 # ---- parse ----
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        --root)     PROJECT_ROOT="$2"; shift 2 ;;
-        --filename) MAIN_FILE="$2";    shift 2 ;;
+        --root)        ROOT_ARG="$(flag_value "$@")";    shift "$(value_shift "$@")" ;;
+        --filename)    MAIN_FILE="$(flag_value "$@")";   shift "$(value_shift "$@")" ;;
+        --output-name) OUTPUT_NAME="$(flag_value "$@")"; shift "$(value_shift "$@")" ;;
+        --bib)         BIB_NAME="$(flag_value "$@")";    shift "$(value_shift "$@")" ;;
         --help)
             cat <<'EOF'
-build.sh — compile the LaTeX document; output goes to <root>/dist/
-Usage: build.sh --root DIR [--filename NAME]
-  --root DIR        Project root (required), where main.tex lives
-  --filename NAME   Main file name without extension (default: main)
+build.sh — compile one LaTeX document; artifacts go to <root>/dist/
+Usage: build.sh --root DIR [--filename NAME] [--output-name NAME] [--bib NAME]
+  --root DIR          Project root (required), where the .tex lives
+  --filename NAME     Source file name without extension (default: main)
+  --output-name NAME  Base name for the build/ sandbox and every dist/ artifact
+                      (default: same as --filename)
+  --bib NAME          Bibliography to format, without extension. By default it is
+                      read from \bibdata{} in the document's .aux.
 
-When ures-bib is available: full compile with the original .bib (to write .aux),
-then format cited entries to a new file, replace the build copy, and compile again.
+Artifacts: dist/<output-name>.pdf, .bbl, .bib and <output-name>_expanded.tex.
+Everything else stays in build/<output-name>/.
+
+When ures-bib is available: compile once with the original .bib to write the .aux,
+format the entries the document actually cites, then compile again.
 EOF
             exit 0 ;;
-        *) echo "❌ unknown arg: $1" >&2; exit 1 ;;
+        *) die "unknown arg: $1" ;;
     esac
 done
 
 # ---- validate ----
-: "${PROJECT_ROOT:?--root is required}"
-cd "${PROJECT_ROOT}"
+setup_paths "${ROOT_ARG}"
+: "${MAIN_FILE:?--filename cannot be empty}"
+: "${OUTPUT_NAME:=${MAIN_FILE}}"
+[[ -f "${MAIN_FILE}.tex" ]] || die "${MAIN_FILE}.tex not found in ${PROJECT_ROOT}"
 
-BUILD_DIR="${PROJECT_ROOT}/build"
-DIST_DIR="${PROJECT_ROOT}/dist"
+SANDBOX="$(sandbox_dir "${OUTPUT_NAME}")"
 
-compile_pdf() {
-    pdflatex -interaction=nonstopmode "${MAIN_FILE}.tex" || true
-    bibtex "${MAIN_FILE}" || true
-    pdflatex -interaction=nonstopmode "${MAIN_FILE}.tex" || true
-    pdflatex -interaction=nonstopmode "${MAIN_FILE}.tex"
-}
-
-# Names from \bibdata{foo,bar} in the aux produced by pass 1.
+# Bibliographies this document cites, as "<name>.bib", taken from \bibdata{foo,bar}
+# in the .aux that the first pass writes.
 bibs_from_aux() {
-    local aux="$1"
-    local line inner name
+    local aux="$1" line inner name
     BIBS=()
     while IFS= read -r line; do
         inner="${line#*\\bibdata\{}"
@@ -58,60 +65,64 @@ bibs_from_aux() {
     done < <(grep -oE '\\bibdata\{[^}]+\}' "${aux}" || true)
 }
 
-echo "🔨 Building LaTeX document..."
-mkdir -p "${BUILD_DIR}" "${DIST_DIR}"
+log_step "Building ${MAIN_FILE}.tex → dist/${OUTPUT_NAME}.pdf"
+copy_sources "${SANDBOX}"
+cd "${SANDBOX}"
 
-# Copy files to build directory
-cp -r *.tex "${BUILD_DIR}/" 2>/dev/null || true
-cp -r *.bib "${BUILD_DIR}/" 2>/dev/null || true
-cp -r *.cls "${BUILD_DIR}/" 2>/dev/null || true
-cp -r *.sty "${BUILD_DIR}/" 2>/dev/null || true
-cp -r assets "${BUILD_DIR}/" 2>/dev/null || true
-cp -r chapters "${BUILD_DIR}/" 2>/dev/null || true
+echo "📄 Pass 1: compile with the original bibliography..."
+compile_document "${MAIN_FILE}"
 
-cd "${BUILD_DIR}"
-
-echo "📄 Pass 1: compile with original bibliography..."
-compile_pdf
-
+# ---- format the bibliography down to the entries this document cites ----
 if command -v ures-bib &> /dev/null && [[ -f "${MAIN_FILE}.aux" ]]; then
-    if [[ -f "${PROJECT_ROOT}/bibstyle.json" ]]; then
-        cp "${PROJECT_ROOT}/bibstyle.json" "${BUILD_DIR}/"
+    if [[ -n "${BIB_NAME}" ]]; then
+        BIBS=("${BIB_NAME}.bib")
+    else
+        bibs_from_aux "${MAIN_FILE}.aux"
     fi
-    bibs_from_aux "${MAIN_FILE}.aux"
-    formatted_any=0
+
+    # All of this document's bibliographies are published as one dist/<output-name>.bib.
+    # It is assembled in the sandbox and only copied out once every entry formatted
+    # cleanly, so a failed run never leaves a truncated bibliography in dist/.
+    combined="${OUTPUT_NAME}.combined.bib"
+    : > "${combined}"
+
     for bib in "${BIBS[@]}"; do
-        if [[ ! -f "${bib}" ]]; then
-            echo "❌ \\bibdata names ${bib}, but that file is not in the build directory" >&2
-            exit 1
-        fi
-        out="${bib%.bib}.formatted.bib"
+        [[ -f "${bib}" ]] || die "bibliography ${bib} was not found in ${PROJECT_ROOT}"
+        formatted="${bib%.bib}.formatted.bib"
         echo "📚 Formatting ${bib} with ures-bib (--aux ${MAIN_FILE}.aux)..."
         ures-bib format "${bib}" \
             --aux "${MAIN_FILE}.aux" \
-            --output "${out}" \
+            --output "${formatted}" \
             --profile "${BIB_PROFILE:-library}"
-        cp "${out}" "${DIST_DIR}/${bib}"
-        cp "${out}" "${bib}"
-        formatted_any=1
+        cat "${formatted}" >> "${combined}"
+        cp "${formatted}" "${bib}"
     done
-    if [[ "${formatted_any}" -eq 1 ]]; then
-        echo "📄 Pass 2: compile with formatted bibliography..."
-        compile_pdf
+
+    if [[ ${#BIBS[@]} -gt 0 ]]; then
+        cp "${combined}" "${DIST_DIR}/${OUTPUT_NAME}.bib"
+        echo "📄 Pass 2: compile with the formatted bibliography..."
+        compile_document "${MAIN_FILE}"
     fi
 fi
 
-# Generate expanded TeX
-if command -v latexpand &> /dev/null; then
-    latexpand --expand-bbl "${MAIN_FILE}.bbl" "${MAIN_FILE}.tex" > "${MAIN_FILE}"_expanded.tex
+# ---- expanded single-file source ----
+# latexpand inlines the .bbl, so it is only asked to do that when one exists: a document
+# without a bibliography produces no .bbl and latexpand would fail on the missing file.
+if command -v latexpand &> /dev/null && [[ -f "${MAIN_FILE}.bbl" ]]; then
+    latexpand --expand-bbl "${MAIN_FILE}.bbl" "${MAIN_FILE}.tex" > "${MAIN_FILE}_expanded.tex"
+elif command -v latexpand &> /dev/null; then
+    latexpand "${MAIN_FILE}.tex" > "${MAIN_FILE}_expanded.tex"
 else
-    cp "${MAIN_FILE}.tex" "${MAIN_FILE}"_expanded.tex
+    cp "${MAIN_FILE}.tex" "${MAIN_FILE}_expanded.tex"
 fi
 
-# Copy to dist
-cd ..
-cp "${BUILD_DIR}/${MAIN_FILE}.pdf" "${DIST_DIR}/"
-cp "${BUILD_DIR}/${MAIN_FILE}.bbl" "${DIST_DIR}/" 2>/dev/null || touch "${DIST_DIR}/${MAIN_FILE}.bbl"
-cp "${BUILD_DIR}/${MAIN_FILE}"_expanded.tex "${DIST_DIR}/"
+# ---- publish ----
+# Sandbox files are named after the source stem; dist/ artifacts after --output-name.
+cp "${MAIN_FILE}.pdf" "${DIST_DIR}/${OUTPUT_NAME}.pdf"
+cp "${MAIN_FILE}.bbl" "${DIST_DIR}/${OUTPUT_NAME}.bbl" 2>/dev/null || touch "${DIST_DIR}/${OUTPUT_NAME}.bbl"
+cp "${MAIN_FILE}_expanded.tex" "${DIST_DIR}/${OUTPUT_NAME}_expanded.tex"
 
-echo "✅ Build complete!"
+collect_log "${SANDBOX}/${MAIN_FILE}.log" "${OUTPUT_NAME}.log"
+collect_log "${SANDBOX}/${MAIN_FILE}.blg" "${OUTPUT_NAME}.blg"
+
+log_ok "Build complete: dist/${OUTPUT_NAME}.pdf"

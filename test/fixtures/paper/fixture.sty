@@ -1,0 +1,7 @@
+% Test fixture package.
+% It exists so the tests can check that a .sty next to the sources is copied into the
+% build sandbox and into the latexdiff sandbox, and that it never leaks into dist/.
+\NeedsTeXFormat{LaTeX2e}
+\ProvidesPackage{fixture}[2026/01/01 v1.0 Fixture package for the release-script tests]
+\newcommand{\fixturenote}[1]{\textit{Note: #1}}
+\endinput

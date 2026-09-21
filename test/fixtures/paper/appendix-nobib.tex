@@ -1,0 +1,26 @@
+% Test fixture: an appendix with NO bibliography at all.
+% Regression fixture. build.sh must not hand "latexpand --expand-bbl" a .bbl that was
+% never produced, and the release must not abort on a document that cites nothing.
+\documentclass[11pt]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+
+\title{Appendix Without a Bibliography}
+\author{Fixture Author}
+\date{}
+
+\begin{document}
+\maketitle
+
+\section{Tables}
+This document has no \verb|\cite| commands and no \verb|\bibliography| command,
+so bibtex produces no .bbl file for it.
+
+\begin{tabular}{ll}
+  Key & Value \\
+  \hline
+  alpha & 1 \\
+  beta & 2 \\
+\end{tabular}
+
+\end{document}

@@ -1,0 +1,44 @@
+#!/bin/bash
+# Test double for curl, backed by $STUB_RELEASES/<tag>/<asset>.
+#
+# download-release-file.sh calls curl twice:
+#   1. GET .../releases/tags/<tag>   -> a JSON body with an "assets" array, then the
+#      HTTP status code. The script splits the two with `tail -n1` / `sed '$d'`, so the
+#      newline before the status code is load-bearing.
+#   2. GET .../releases/assets/<id> -o <file>  -> the asset bytes.
+# The asset "id" this stub hands out is "<tag>/<name>", i.e. the path under
+# $STUB_RELEASES, so the second call is a plain file copy.
+#
+# Anything else is an error: the test suite must never reach the network.
+url="${!#}"
+out=""
+while [[ $# -gt 0 ]]; do
+    [[ "$1" == "-o" ]] && out="$2"
+    shift
+done
+
+if [[ "$url" == */releases/tags/* ]]; then
+    tag="${url##*/releases/tags/}"
+    dir="${STUB_RELEASES}/${tag}"
+    if [[ ! -d "$dir" ]]; then
+        printf '{"message":"Not Found"}\n404'
+        exit 0
+    fi
+    printf '{"assets":['
+    sep=""
+    for f in "$dir"/*; do
+        [[ -e "$f" ]] || continue
+        printf '%s{"name":"%s","id":"%s/%s"}' "$sep" "$(basename "$f")" "$tag" "$(basename "$f")"
+        sep=","
+    done
+    printf ']}\n200'
+    exit 0
+fi
+
+if [[ "$url" == */releases/assets/* ]]; then
+    cp "${STUB_RELEASES}/${url##*/releases/assets/}" "$out"
+    exit 0
+fi
+
+echo "stub curl: unhandled request: $url" >&2
+exit 1

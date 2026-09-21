@@ -1,0 +1,27 @@
+% Test fixture: the "appendix" document.
+% A second complete standalone document that filters the SAME refs.bib as main.tex.
+% Building it must not clobber the main document's published bibliography in dist/.
+\documentclass[11pt]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{url}
+
+\title{Appendix to the Fixture Paper}
+\author{Fixture Author}
+\date{}
+
+\begin{document}
+\maketitle
+
+\section{Additional Notes}
+The appendix cites fewer works than the main document, and one of them
+overlaps with it \cite{paszkePyTorchImperativeStyle2019}.
+
+\section{Further Reading}
+Two entries that the main document does not cite
+\cite{binzTOSCAPortableAutomated2014, rubinsteinSimulationMonteCarlo2017}.
+
+\bibliographystyle{plain}
+\bibliography{refs}
+
+\end{document}

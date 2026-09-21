@@ -1,0 +1,49 @@
+% Test fixture: the "main" document of a fake paper project.
+% A complete standalone document -- never an \input fragment -- so that every script
+% under test can compile it on its own. It cites a spread of entry types from refs.bib
+% (accented authors, long author lists, braced titles, entries with and without a doi).
+\documentclass[11pt]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{url}
+\usepackage{fixture}
+
+\title{A Fixture Paper for the LaTeX Release Scripts}
+\author{Fixture Author}
+\date{}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+This document exists only so the release scripts have something real to compile.
+It carries a bibliography so that the bibtex, ures-bib and latexpand code paths are
+all exercised.
+\end{abstract}
+
+\section{Introduction}
+Deep learning frameworks shaped how these experiments are run
+\cite{paszkePyTorchImperativeStyle2019, anselPyTorch2Faster2024}.
+Attention kernels remain the dominant cost \cite{dao2022flashattention}.
+
+\section{Scheduling}
+Container scheduling has been surveyed in depth
+\cite{carrionKubernetesSchedulingTaxonomy2022, harichaneProposalKubernetesScheduler2020}.
+Resource allocation has a long tail of prior work
+\cite{hassannatajjoloudariResourceAllocationProblem2024}.
+Long author lists appear in model reports \cite{grattafioriLlama3Herd2024}.
+
+\section{Background}
+Classical references carry neither a doi nor a url
+\cite{bishopNeuralNetworksPattern1995}, which the bibliography formatter
+reports as a warning rather than an error.
+Vendor and practitioner write-ups round out the picture
+\cite{shahMemoryOptimizationDeep2020}.
+
+\section{Conclusion}
+\fixturenote{nothing is concluded; this is a fixture.}
+
+\bibliographystyle{plain}
+\bibliography{refs}
+
+\end{document}
