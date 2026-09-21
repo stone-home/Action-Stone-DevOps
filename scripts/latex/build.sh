@@ -10,6 +10,7 @@ ROOT_ARG=""
 MAIN_FILE="${MAIN_FILE:-main}"
 OUTPUT_NAME=""
 BIB_NAME=""
+AUX_FROM=""
 
 # ---- parse ----
 while [[ $# -gt 0 ]]; do
@@ -17,6 +18,7 @@ while [[ $# -gt 0 ]]; do
         --root)        ROOT_ARG="$(flag_value "$@")";    shift "$(value_shift "$@")" ;;
         --filename)    MAIN_FILE="$(flag_value "$@")";   shift "$(value_shift "$@")" ;;
         --output-name) OUTPUT_NAME="$(flag_value "$@")"; shift "$(value_shift "$@")" ;;
+        --aux-from)    AUX_FROM="$(flag_value "$@")";    shift "$(value_shift "$@")" ;;
         --bib)         BIB_NAME="$(flag_value "$@")";    shift "$(value_shift "$@")" ;;
         --help)
             cat <<'EOF'
@@ -28,6 +30,10 @@ Usage: build.sh --root DIR [--filename NAME] [--output-name NAME] [--bib NAME]
                       (default: same as --filename)
   --bib NAME          Bibliography to format, without extension. By default it is
                       read from \bibdata{} in the document's .aux.
+  --aux-from NAME     Copy another document's .aux from build/<NAME>/ into this
+                      sandbox first, so \externaldocument (the xr package) can
+                      resolve cross-document references. That document must have
+                      been built once already.
 
 Artifacts: dist/<output-name>.pdf, .bbl, .bib and <output-name>_expanded.tex.
 Everything else stays in build/<output-name>/.
@@ -67,6 +73,10 @@ bibs_from_aux() {
 
 log_step "Building ${MAIN_FILE}.tex → dist/${OUTPUT_NAME}.pdf"
 copy_sources "${SANDBOX}"
+if [[ -n "${AUX_FROM}" ]]; then
+    log_info "Linking cross-document references from build/${AUX_FROM}/"
+    copy_aux_from "${AUX_FROM}" "${SANDBOX}" "${MAIN_FILE}"
+fi
 cd "${SANDBOX}"
 
 echo "📄 Pass 1: compile with the original bibliography..."

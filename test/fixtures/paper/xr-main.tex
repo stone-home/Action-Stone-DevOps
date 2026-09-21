@@ -1,0 +1,12 @@
+% Main half of the cross-document reference pair. Pairs with xr-appendix.tex:
+% each resolves \externaldocument against the other's .aux, which only exists once
+% that document has been built, so a build order that finalises one before compiling
+% the other leaves these references undefined.
+\documentclass{article}
+\usepackage{xr}
+\externaldocument[A-]{xr-appendix}
+\begin{document}
+\section{Body}\label{sec:body}
+Same-document reference: Section~\ref{sec:body}.
+Cross-document reference: see Appendix~\ref{A-app:proof}.
+\end{document}

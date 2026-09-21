@@ -13,6 +13,7 @@ REPO_OWNER=""
 REPO_NAME=""
 OUTPUT_NAME=""
 ASSET_NAME="source"
+AUX_FROM=""
 ALLOW_MISSING=0
 
 # ---- parse ----
@@ -25,6 +26,7 @@ while [[ $# -gt 0 ]]; do
         --repo)       REPO_NAME="$(flag_value "$@")";       shift "$(value_shift "$@")" ;;
         --output)     OUTPUT_NAME="$(flag_value "$@")";     shift "$(value_shift "$@")" ;;
         --asset-name) ASSET_NAME="$(flag_value "$@")";      shift "$(value_shift "$@")" ;;
+        --aux-from)   AUX_FROM="$(flag_value "$@")";        shift "$(value_shift "$@")" ;;
         --allow-missing) ALLOW_MISSING=1;       shift ;;
         --help)
             cat <<'EOF'
@@ -38,6 +40,8 @@ Usage: compare.sh --root DIR --from NAME --compare VER --owner OWNER --repo REPO
   --repo REPO        Repository name
   --output NAME      Sandbox name and the artifact name: dist/<NAME>.pdf
   --asset-name NAME  Release asset to download is <NAME>-<version>.tex (default: source)
+  --aux-from NAME    Copy another document's .aux from build/<NAME>/ into the diff
+                     sandbox, so cross-document references resolve in the diff too
   --allow-missing    A release without that asset is a warning, not an error. Use it
                      for documents the previous release may not have carried yet.
 
@@ -89,6 +93,9 @@ else
     cp "${PROJECT_ROOT}"/*.bib "${SANDBOX}/" 2>/dev/null || true
 fi
 copy_diff_resources "${SANDBOX}"
+if [[ -n "${AUX_FROM}" ]]; then
+    copy_aux_from "${AUX_FROM}" "${SANDBOX}" "${OUTPUT_NAME}"
+fi
 
 cd "${SANDBOX}"
 

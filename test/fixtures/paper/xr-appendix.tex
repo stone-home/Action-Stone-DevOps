@@ -1,0 +1,9 @@
+% Appendix half of the cross-document reference pair. See xr-main.tex.
+\documentclass{article}
+\usepackage{xr}
+\externaldocument[M-]{xr-main}
+\begin{document}
+\section{Proof}\label{app:proof}
+Same-document reference: Section~\ref{app:proof}.
+Cross-document reference: see Section~\ref{M-sec:body}.
+\end{document}

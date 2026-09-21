@@ -67,24 +67,29 @@ if has_previous_release && [[ -z "${REPO_OWNER}" || -z "${REPO_NAME}" ]]; then
     die "--last needs GITHUB_REPOSITORY_OWNER and GITHUB_REPOSITORY; GitHub Actions sets them, so export them by hand when running this locally"
 fi
 
-# Each document gets its own build sandbox and its own dist/ artifacts, so the two
-# builds are independent and the diffs afterwards only read what they produced.
+# Both documents are compiled once before either is finalised. That order matters: the
+# xr package resolves \externaldocument against the other document's .aux, which only
+# exists after that document has been built. A single pass over each in turn would leave
+# every cross-document reference undefined.
+
+build_document() {
+    bash "${SCRIPT_DIR}/build.sh" --root "${PROJECT_ROOT}" "$@"
+}
 
 # ---- 1. main document ----
-bash "${SCRIPT_DIR}/build.sh" \
-    --root "${PROJECT_ROOT}" \
-    --filename "${MAIN_FILE}" \
-    --output-name main
+build_document --filename "${MAIN_FILE}" --output-name main
 
 # ---- 2. appendix ----
 if [[ -n "${APPENDIX_FILE}" ]]; then
-    bash "${SCRIPT_DIR}/build.sh" \
-        --root "${PROJECT_ROOT}" \
-        --filename "${APPENDIX_FILE}" \
-        --output-name appendix
+    build_document --filename "${APPENDIX_FILE}" --output-name appendix
+
+    # ---- 3. rebuild both, now that each can see the other's .aux ----
+    log_info "Resolving cross-document references"
+    build_document --filename "${MAIN_FILE}"     --output-name main     --aux-from appendix
+    build_document --filename "${APPENDIX_FILE}" --output-name appendix --aux-from main
 fi
 
-# ---- 3. diff the main document ----
+# ---- 4. diff the main document ----
 if has_previous_release; then
     bash "${SCRIPT_DIR}/compare.sh" \
         --root "${PROJECT_ROOT}" \
@@ -92,10 +97,11 @@ if has_previous_release; then
         --compare "v${LAST_VERSION}" \
         --owner "${REPO_OWNER}" \
         --repo "${REPO_NAME}" \
-        --output diff
+        --output diff \
+        ${APPENDIX_FILE:+--aux-from appendix}
 fi
 
-# ---- 4. diff the appendix ----
+# ---- 5. diff the appendix ----
 # A release made before the appendix existed carries no appendix-source asset, so a
 # missing one is expected rather than fatal.
 if has_previous_release && [[ -n "${APPENDIX_FILE}" ]]; then
@@ -107,6 +113,7 @@ if has_previous_release && [[ -n "${APPENDIX_FILE}" ]]; then
         --repo "${REPO_NAME}" \
         --output appendix-diff \
         --asset-name appendix-source \
+        --aux-from main \
         --allow-missing
 fi
 

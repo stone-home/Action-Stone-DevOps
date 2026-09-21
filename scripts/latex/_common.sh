@@ -104,3 +104,16 @@ copy_diff_resources() {
         cp -r "${item}" "${dest}/"
     done
 }
+
+# Make another document's .aux available in this sandbox, so cross-document references
+# (the xr package's \externaldocument) can resolve. The other document must already have
+# been compiled once. Its own .aux is never overwritten: a sandbox may still hold a stale
+# copy of this document's .aux from an earlier cross-reference round.
+copy_aux_from() {
+    local other="$1" dest="$2" own_stem="$3" f
+    for f in "${BUILD_ROOT}/${other}"/*.aux; do
+        [[ -e "${f}" ]] || continue
+        [[ "$(basename "${f}")" == "${own_stem}.aux" ]] && continue
+        cp "${f}" "${dest}/"
+    done
+}

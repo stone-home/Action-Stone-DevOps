@@ -571,6 +571,36 @@ test_15_custom_bst_reaches_the_sandbox() {
     pass "${name}"
 }
 
+test_16_cross_document_references() {
+    local name="T16 cross-document references resolve in both directions"
+    if [[ -n "${LATEX_MISSING}" ]]; then skip "${name}" "${LATEX_MISSING}"; return; fi
+
+    new_workdir; local d="${WORKDIR}"
+    if ! run_in "${d}" bash "${SCRIPTS}/prepare-release.sh" --root . \
+             --main xr-main --appendix xr-appendix; then
+        fail "${name}" "prepare-release.sh exited non-zero: $(log_of "${d}" | tail -3 | tr '\n' ' ')"
+        return
+    fi
+
+    # Each document must see the other's .aux, and neither may have kept a stale copy
+    # of its own under the other's name.
+    [[ -f "${d}/build/main/xr-appendix.aux" ]] \
+        || { fail "${name}" "build/main/ never received xr-appendix.aux"; return; }
+    [[ -f "${d}/build/appendix/xr-main.aux" ]] \
+        || { fail "${name}" "build/appendix/ never received xr-main.aux"; return; }
+
+    # The log is the real check: an unresolved \ref renders as ?? but still exits 0.
+    local doc stem
+    for doc in main:xr-main appendix:xr-appendix; do
+        stem="${doc#*:}"
+        if grep -q "undefined" "${d}/build/${doc%%:*}/${stem}.log"; then
+            fail "${name}" "${stem}.log reports undefined references: $(grep -o "Reference \`[^']*' on page [0-9]* undefined" "${d}/build/${doc%%:*}/${stem}.log" | sort -u | tr '\n' ' ')"
+            return
+        fi
+    done
+    pass "${name}"
+}
+
 # ===================================================================== main ====
 
 main() {
@@ -604,6 +634,7 @@ main() {
     test_13_validate
     test_14_flags_do_not_swallow_the_next_flag
     test_15_custom_bst_reaches_the_sandbox
+    test_16_cross_document_references
 
     echo
     echo "-----------------------------------------------------------"
