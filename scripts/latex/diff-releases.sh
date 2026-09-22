@@ -39,7 +39,8 @@ Usage: diff-releases.sh --root DIR --owner OWNER --repo REPO --old VER --new VER
                      Pass appendix-source to diff appendices.
   --output NAME      Artifact name (default: diff-<old>-to-<new>)
 
-Needs GITHUB_TOKEN and jq. The working tree is never touched.
+Needs GITHUB_TOKEN and jq. The working tree is never touched. When either release
+does not carry the asset there is nothing to diff, so the diff is skipped.
 EOF
             exit 0 ;;
         *) die "unknown arg: $1" ;;
@@ -67,11 +68,14 @@ download_asset() {
     bash "${SCRIPT_DIR}/download-release-file.sh" \
         --owner "${REPO_OWNER}" --repo "${REPO_NAME}" \
         --version "${version}" --asset "${asset}" --output "${SANDBOX}"
-    [[ -f "${SANDBOX}/${asset}" ]] || die "could not download ${asset} from ${version}"
 }
 
-download_asset "${OLD_VERSION}" "${OLD_FILE}"
-download_asset "${NEW_VERSION}" "${NEW_FILE}"
+for side in "${OLD_VERSION}:${OLD_FILE}" "${NEW_VERSION}:${NEW_FILE}"; do
+    if ! download_asset "${side%%:*}" "${side#*:}" || [[ ! -f "${SANDBOX}/${side#*:}" ]]; then
+        log_warn "${side#*:} is not available from ${side%%:*} — skipping this diff"
+        exit 0
+    fi
+done
 
 # The published sources carry an inlined bibliography, but still reference the project's
 # class files, packages and figures.

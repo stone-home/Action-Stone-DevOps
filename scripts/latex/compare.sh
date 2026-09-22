@@ -14,7 +14,6 @@ REPO_NAME=""
 OUTPUT_NAME=""
 ASSET_NAME="source"
 AUX_FROM=""
-ALLOW_MISSING=0
 
 # ---- parse ----
 while [[ $# -gt 0 ]]; do
@@ -27,12 +26,11 @@ while [[ $# -gt 0 ]]; do
         --output)     OUTPUT_NAME="$(flag_value "$@")";     shift "$(value_shift "$@")" ;;
         --asset-name) ASSET_NAME="$(flag_value "$@")";      shift "$(value_shift "$@")" ;;
         --aux-from)   AUX_FROM="$(flag_value "$@")";        shift "$(value_shift "$@")" ;;
-        --allow-missing) ALLOW_MISSING=1;       shift ;;
         --help)
             cat <<'EOF'
 compare.sh — diff a document already built into dist/ against a published release
 Usage: compare.sh --root DIR --from NAME --compare VER --owner OWNER --repo REPO
-                  --output NAME [--asset-name NAME] [--allow-missing]
+                  --output NAME [--asset-name NAME] [--aux-from NAME]
   --root DIR         Project root (required)
   --from NAME        Document to diff; reads dist/<NAME>_expanded.tex and dist/<NAME>.bib
   --compare VER      Release tag to compare against, e.g. v1.0.0
@@ -42,10 +40,9 @@ Usage: compare.sh --root DIR --from NAME --compare VER --owner OWNER --repo REPO
   --asset-name NAME  Release asset to download is <NAME>-<version>.tex (default: source)
   --aux-from NAME    Copy another document's .aux from build/<NAME>/ into the diff
                      sandbox, so cross-document references resolve in the diff too
-  --allow-missing    A release without that asset is a warning, not an error. Use it
-                     for documents the previous release may not have carried yet.
 
-Run build.sh for the document first; this script never compiles it.
+Run build.sh for the document first; this script never compiles it. When the release
+does not carry the asset there is nothing to diff against, so the diff is skipped.
 EOF
             exit 0 ;;
         *) die "unknown arg: $1" ;;
@@ -76,11 +73,8 @@ if ! bash "${SCRIPT_DIR}/download-release-file.sh" \
         --version "${COMPARE_VERSION}" --asset "${COMPARE_FILE}" \
         --output "${SANDBOX}" \
    || [[ ! -f "${SANDBOX}/${COMPARE_FILE}" ]]; then
-    if [[ "${ALLOW_MISSING}" -eq 1 ]]; then
-        log_warn "${COMPARE_FILE} is not attached to ${COMPARE_VERSION} — skipping this diff"
-        exit 0
-    fi
-    die "could not download ${COMPARE_FILE} from ${COMPARE_VERSION}"
+    log_warn "${COMPARE_FILE} is not available from ${COMPARE_VERSION} — skipping this diff"
+    exit 0
 fi
 
 # ---- assemble the diff sandbox ----

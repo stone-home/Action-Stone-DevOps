@@ -175,8 +175,8 @@ GITHUB_TOKEN=... bash .devops/scripts/latex/compare.sh \
 ```
 
 Run `build.sh --output-name main` first. The default downloaded asset is
-`source-1.3.0.tex`. Use `--asset-name appendix-source` for an appendix and
-`--allow-missing` when older releases may not contain it.
+`source-1.3.0.tex`. Use `--asset-name appendix-source` for an appendix. When the
+release does not carry the asset, the diff is skipped with a warning.
 
 ### `diff-releases.sh`
 

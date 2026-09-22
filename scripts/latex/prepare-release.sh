@@ -90,6 +90,7 @@ if [[ -n "${APPENDIX_FILE}" ]]; then
 fi
 
 # ---- 4. diff the main document ----
+# compare.sh skips the diff when the previous release carries no source asset.
 if has_previous_release; then
     bash "${SCRIPT_DIR}/compare.sh" \
         --root "${PROJECT_ROOT}" \
@@ -102,8 +103,8 @@ if has_previous_release; then
 fi
 
 # ---- 5. diff the appendix ----
-# A release made before the appendix existed carries no appendix-source asset, so a
-# missing one is expected rather than fatal.
+# A release made before the appendix existed carries no appendix-source asset; compare.sh
+# skips the diff in that case, as it does for the main document.
 if has_previous_release && [[ -n "${APPENDIX_FILE}" ]]; then
     bash "${SCRIPT_DIR}/compare.sh" \
         --root "${PROJECT_ROOT}" \
@@ -113,8 +114,7 @@ if has_previous_release && [[ -n "${APPENDIX_FILE}" ]]; then
         --repo "${REPO_NAME}" \
         --output appendix-diff \
         --asset-name appendix-source \
-        --aux-from main \
-        --allow-missing
+        --aux-from main
 fi
 
 log_ok "Release prepared. Artifacts in ${DIST_DIR}, logs in ${LOGS_DIR}"
