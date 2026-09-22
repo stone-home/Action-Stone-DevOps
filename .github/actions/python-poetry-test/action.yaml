@@ -8,7 +8,7 @@ inputs:
   poetry-version:
     description: "Poetry Version"
     required: false
-    default: "2.1.4"
+    default: "2.5.1"
 
 runs:
   using: "composite"

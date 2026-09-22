@@ -4,11 +4,11 @@ inputs:
   python-version:
     description: "Version of Python to use"
     required: true
-    default: "3.11"
+    default: "3.12"
   poetry-version:
     description: "Version of Poetry to use"
     required: true
-    default: "1.8.5"
+    default: "2.5.1"
   kubernetes-mode:
     description: "enable kubernetes mode, meaning that this action run on a host with ARC kubernetes mode"
     required: false
