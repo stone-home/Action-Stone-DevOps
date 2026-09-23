@@ -351,7 +351,7 @@ test_09_release_without_previous_appendix() {
         fail "${name}" "an appendix diff was produced although the previous release has no appendix source"
         return
     fi
-    if ! log_of "${d}" | grep -q 'appendix-source-1.0.0.tex is not attached'; then
+    if ! log_of "${d}" | grep -q 'appendix-source-1.0.0.tex is not available from v1.0.0 — skipping this diff'; then
         fail "${name}" "the missing appendix source was not reported as a warning"
         return
     fi
