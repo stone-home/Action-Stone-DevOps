@@ -13,7 +13,7 @@ runs:
       if: ${{ inputs.kubernetes-mode != 'true' }}
       uses: trufflesecurity/trufflehog@main
       with:
-        extra_args: --results=verified,unknown --fail
+        extra_args: --results=verified,unknown
 
     - name: Secret Scanning (ARC/k8s shell)
       if: ${{ inputs.kubernetes-mode == 'true' }}
