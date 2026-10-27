@@ -1,5 +1,16 @@
 name: Docker Build and Push
-description: "Build and push with Docker (hosted) or Kaniko (ARC kubernetes-mode, no Docker socket)"
+description: "Build and push with Docker (hosted) or Kaniko in a separate step pod (ARC kubernetes-mode, no Docker socket)"
+
+# kubernetes-mode: Kaniko only works in its official image (it unpacks the base
+# image over its own root and keeps what was already there, and its multi-stage
+# wipe deletes logins under /tmp). So the job container only fetches the token
+# (needs bash, git, op, curl, jq, e.g. stonebo/arc-runner:docker-builder) and
+# Kaniko runs as a docker:// step, which the ARC kubernetes hook starts as a
+# separate pod with the workspace copied to /github/workspace.
+#
+# The Kaniko script is scripts/docker/kaniko-build.sh in this repo. It is
+# cloned to .devops inside the workspace, so the step pod gets it with the
+# workspace copy.
 
 inputs:
   registry:
@@ -18,7 +29,7 @@ inputs:
     description: "OnePassword service account token"
     required: true
   kubernetes-mode:
-    description: "true = Kaniko in container (no Docker). Job must use gcr.io/kaniko-project/executor:*-debug"
+    description: "true = Kaniko in a separate step pod (no Docker). Job container needs bash, git, op, curl, jq"
     required: false
     default: "false"
   image-name:
@@ -38,9 +49,14 @@ inputs:
     required: false
     default: "latest"
   git-clone:
-    description: "Useful in kubernetes-mode to avoid fnctl64 missing issue in post-checkout steps."
+    description: "kubernetes-mode only: check out the triggering commit with plain git (actions/checkout's post step fails there with fcntl64). false = the caller checks out"
     required: false
     default: "true"
+
+outputs:
+  digest:
+    description: "Manifest digest of the first tag right after the push (sha256:...)"
+    value: ${{ steps.build.outputs.digest || steps.digest.outputs.digest }}
 
 # ===========================================================================
 # Required Permission
@@ -52,39 +68,68 @@ runs:
   using: composite
   steps:
     # The fnctl64 missing issue occurs in kubernetes mode only (at least in my case)
+    # Works on a non-empty workspace (origin is reset, the tree is forced and
+    # cleaned). The token is passed only for the fetch, never written to
+    # .git/config: the workspace is the build context, so a COPY . . would put
+    # it in the image.
     - name: Native Git Checkout (avoids fnctl64 missing issue in post checkout steps)
       if: inputs.kubernetes-mode == 'true' && inputs.git-clone == 'true'
-      env:
-        GITHUB_TOKEN: ${{ github.token }}
-        REPO_URL: github.com/${{ github.repository }}.git
-        BRANCH: ${{ github.ref_name }}
       shell: bash
+      env:
+        GIT_TOKEN: ${{ github.token }}
       run: |
-        # Trust the default GitHub Actions workspace directory
+        set -euo pipefail
         git config --global --add safe.directory "$GITHUB_WORKSPACE"
-
-        # Clone the specific branch using the automatic token
-        # github.ref_name supports both workflow_dispatch and push events
-        git clone --single-branch --branch "$BRANCH" "https://x-access-token:${GITHUB_TOKEN}@${REPO_URL}" .
-
-        # Optional validation
+        git init -q
+        git remote remove origin 2>/dev/null || true
+        git remote add origin "https://github.com/${GITHUB_REPOSITORY}.git"
+        auth=$(printf 'x-access-token:%s' "$GIT_TOKEN" | base64 | tr -d '\n')
+        echo "::add-mask::${auth}"
+        git -c http.https://github.com/.extraheader="AUTHORIZATION: basic ${auth}" \
+          fetch -q --depth 1 origin "$GITHUB_SHA"
+        git checkout -q --force --detach FETCH_HEAD
+        git clean -ffdxq
         git log -1 --format="Checked out commit: %H"
-    - name: Set image name and tags
-      id: image
+
+    # After the checkout above, whose git clean would delete it. Plain git:
+    # actions/checkout's post step fails in ARC job containers (fcntl64).
+    # Public repo, so no token.
+    - name: Checkout DevOps repository
+      if: inputs.kubernetes-mode == 'true'
       shell: bash
       run: |
         set -euo pipefail
-        name="${{ inputs.image-name }}"
-        if [ -z "$name" ] && [ "${{ inputs.registry }}" = "ghcr" ]; then
-          name="ghcr.io/${{ github.repository }}"
+        rm -rf "$GITHUB_WORKSPACE/.devops"
+        git clone -q --depth 1 --branch trunk https://github.com/stone-home/Action-Stone-DevOps.git "$GITHUB_WORKSPACE/.devops"
+
+    - name: Set image name and tags
+      id: image
+      shell: bash
+      env:
+        REGISTRY: ${{ inputs.registry }}
+        REGISTRY_USER: ${{ inputs.registry-username }}
+        IMAGE_NAME: ${{ inputs.image-name }}
+        TAGS: ${{ inputs.tags }}
+      run: |
+        set -euo pipefail
+        if [ -z "$REGISTRY_USER" ]; then
+          echo "::error::registry-username is required"
+          exit 1
         fi
-        if [ "${{ inputs.registry }}" = "ghcr" ]; then
+        name="$IMAGE_NAME"
+        if [ -z "$name" ] && [ "$REGISTRY" = "ghcr" ]; then
+          name="ghcr.io/${GITHUB_REPOSITORY}"
+        fi
+        if [ -z "$name" ]; then
+          echo "::error::image-name is required for registry=${REGISTRY}"
+          exit 1
+        fi
+        if [ "$REGISTRY" = "ghcr" ]; then
           name=$(echo "$name" | tr '[:upper:]' '[:lower:]')
         fi
         echo "name=$name" >> "$GITHUB_OUTPUT"
-        tags_in="${{ inputs.tags }}"
         tags_full=""
-        IFS=',' read -ra TARR <<< "$tags_in"
+        IFS=',' read -ra TARR <<< "$TAGS"
         for t in "${TARR[@]}"; do
           t=$(echo "$t" | xargs)
           [ -z "$t" ] && continue
@@ -108,6 +153,7 @@ runs:
         kubernetes-mode: ${{ inputs.kubernetes-mode }}
         onepass-token: ${{ inputs.onepass-token }}
 
+    # ---------------- Docker (hosted runners) ----------------
     - name: Log in to GitHub Container Registry
       if: inputs.registry == 'ghcr' && inputs.kubernetes-mode != 'true'
       uses: docker/login-action@v3
@@ -124,6 +170,7 @@ runs:
         password: ${{ steps.get-registry-token.outputs.token }}
 
     - name: Build and push Docker image
+      id: build
       if: inputs.kubernetes-mode != 'true'
       uses: docker/build-push-action@v6
       with:
@@ -132,61 +179,59 @@ runs:
         push: true
         tags: ${{ steps.image.outputs.tags }}
 
-    - name: Build and push (Kaniko, no Docker daemon)
+    # ---------------- Kaniko (ARC kubernetes-mode) ----------------
+    # v1.24.0 is the last upstream release (2025-05-23).
+    - name: Build and push (Kaniko step pod)
       if: inputs.kubernetes-mode == 'true'
-      shell: sh
+      uses: docker://gcr.io/kaniko-project/executor:v1.24.0-debug
       env:
         REGISTRY: ${{ inputs.registry }}
-        REG_USER: ${{ inputs.registry-username }}
-        REG_PASS: ${{ steps.get-registry-token.outputs.token }}
-        TAGS_FULL: ${{ steps.image.outputs.tags }}
+        REGISTRY_USER: ${{ inputs.registry-username }}
+        REGISTRY_PASSWORD: ${{ steps.get-registry-token.outputs.token }}
+        BUILD_TAGS_FULL: ${{ steps.image.outputs.tags }}
         BUILD_CONTEXT: ${{ inputs.context }}
-        DOCKERFILE_PATH: ${{ inputs.dockerfile }}
+        BUILD_DOCKERFILE: ${{ inputs.dockerfile }}
+      with:
+        entrypoint: /busybox/sh
+        args: /github/workspace/.devops/scripts/docker/kaniko-build.sh
+
+    # Read from the registry (not Kaniko's --digest-file): the step pod gets a
+    # copy of the workspace, so files it writes never come back. Use the digest
+    # to run the image in later jobs: ARC job pods pull IfNotPresent, so a tag
+    # can hit an older image cached on the node.
+    - name: Resolve pushed digest
+      id: digest
+      if: inputs.kubernetes-mode == 'true'
+      shell: bash
+      env:
+        REGISTRY: ${{ inputs.registry }}
+        REGISTRY_USER: ${{ inputs.registry-username }}
+        REGISTRY_PASSWORD: ${{ steps.get-registry-token.outputs.token }}
+        BUILD_TAGS_FULL: ${{ steps.image.outputs.tags }}
       run: |
-        set -eu
-        if [ ! -x /kaniko/executor ]; then
-          echo "::error::kubernetes-mode needs Kaniko at /kaniko/executor. Plain ubuntu:24.04 has no Docker and no Kaniko — see Dockerfile.arc-ubuntu-kaniko.example in this folder."
-          exit 1
-        fi
-
-        ws="${GITHUB_WORKSPACE}"
-        ctx=$(cd "$ws" && realpath "${BUILD_CONTEXT:-.}")
-        df=$(cd "$ws" && realpath "$DOCKERFILE_PATH")
-        case "$df" in
-          "$ctx"/*) rel="${df#"$ctx"/}";;
-          *)
-            echo "::error::Dockerfile must be inside the build context ($BUILD_CONTEXT)."
-            exit 1
-            ;;
-        esac
-
-        export DOCKER_CONFIG="/tmp/kaniko-docker-config"
-        rm -rf "$DOCKER_CONFIG"
-        mkdir -p "$DOCKER_CONFIG"
+        set -euo pipefail
+        ref=$(cut -d, -f1 <<<"$BUILD_TAGS_FULL" | tr -d '[:space:]')
+        name="${ref%:*}" tag="${ref##*:}"
         if [ "$REGISTRY" = "ghcr" ]; then
-          key="ghcr.io"
+          repo="${name#ghcr.io/}"
+          auth="https://ghcr.io/token?service=ghcr.io&scope=repository:${repo}:pull"
+          api="https://ghcr.io/v2/${repo}"
         else
-          key="https://index.docker.io/v1/"
+          repo="${name#docker.io/}"; repo="${repo#index.docker.io/}"
+          [[ "$repo" == */* ]] || repo="library/${repo}"
+          auth="https://auth.docker.io/token?service=registry.docker.io&scope=repository:${repo}:pull"
+          api="https://registry-1.docker.io/v2/${repo}"
         fi
-        if [ -z "${REG_USER:-}" ] || [ -z "${REG_PASS:-}" ]; then
-          echo "::error::registry-username and registry token are required for Kaniko push."
-          exit 1
-        fi
-        b64=$(printf '%s:%s' "$REG_USER" "$REG_PASS" | base64 -w0 2>/dev/null || printf '%s:%s' "$REG_USER" "$REG_PASS" | base64 | tr -d '\n')
-        printf '%s\n' "{\"auths\":{\"${key}\":{\"auth\":\"${b64}\"}}}" > "$DOCKER_CONFIG/config.json"
+        token=$(curl -fsS -u "${REGISTRY_USER}:${REGISTRY_PASSWORD}" "$auth" | jq -r .token)
+        digest=$(curl -fsSI -H "Authorization: Bearer ${token}" \
+          -H 'Accept: application/vnd.oci.image.index.v1+json, application/vnd.oci.image.manifest.v1+json, application/vnd.docker.distribution.manifest.list.v2+json, application/vnd.docker.distribution.manifest.v2+json' \
+          "${api}/manifests/${tag}" \
+          | tr -d '\r' | awk 'tolower($1) == "docker-content-digest:" { print $2 }')
+        [[ "$digest" == sha256:* ]] || { echo "no digest for ${ref}" >&2; exit 1; }
+        echo "Pushed ${ref}@${digest}"
+        echo "digest=${digest}" >> "$GITHUB_OUTPUT"
 
-        # Kaniko v1.24+: no --push (push is default when --destination is set; use --no-push to disable).
-        # Save IFS before the loop; do not put '\' after --dockerfile if the next line is an assignment
-        # (backslash would continue the line and merge oifs= into the set -- command).
-        _ifs_save=$IFS
-        set -- \
-          --context="dir://${ctx}" \
-          --dockerfile="$rel"
-        IFS=,
-        for d in $TAGS_FULL; do
-          d=$(echo "$d" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
-          [ -z "$d" ] && continue
-          set -- "$@" --destination="$d"
-        done
-        IFS=$_ifs_save
-        exec /kaniko/executor "$@"
+    - name: Remove DevOps checkout
+      if: always() && inputs.kubernetes-mode == 'true'
+      shell: bash
+      run: rm -rf "$GITHUB_WORKSPACE/.devops"
