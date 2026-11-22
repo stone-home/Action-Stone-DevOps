@@ -39,21 +39,15 @@ jobs:
       - uses: actions/setup-node@v6
         with:
           node-version: 24
-      - name: Configure 1Password Service Account
-        uses: 1password/load-secrets-action/configure@v2
-        with:
-          # Persist the 1Password Service Account Authorization token
-          # for next steps.
-          # Keep in mind that every single step in the job is now
-          # able to access the token.
-          service-account-token: ${{ secrets.onepass_token }}
-
+      # The service account token is set on this step only, so npm ci and the
+      # build below cannot read it.
       - name: Load GitHub credentials
         id: load-credentials
         uses: 1password/load-secrets-action@v2
         with:
           export-env: false
         env:
+          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.onepass_token }}
           GITHUB_TOKEN: ${{ inputs.git_token_path }}
 
       - name: Cache TeX Live installation

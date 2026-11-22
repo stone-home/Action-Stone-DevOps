@@ -9,24 +9,27 @@ modes, and permissions.
 
 ### `setup-1password`
 
-Configures the 1Password service-account action on a normal runner. In
-Kubernetes mode it installs the `op` CLI and ensures `unzip` and CA certificates
-exist.
+In Kubernetes mode it installs the `op` CLI and ensures `unzip` and CA
+certificates exist. On a normal runner it does nothing.
+
+It does not export the service-account token. The token is never written to the
+job environment; `load-github-token` sets it on the single step that reads a
+secret, so dependency installs, builds, and linters in the same job cannot read
+it.
 
 | Input | Required | Default | Meaning |
 |---|---:|---|---|
-| `onepass-token` | Yes | — | 1Password service-account token |
+| `onepass-token` | No | — | Deprecated and unused; pass the token to `load-github-token` |
 | `kubernetes-mode` | No | `false` | Use the CLI-oriented ARC path |
 
 ```yaml
 - uses: stone-home/Action-Stone-DevOps/.github/actions/setup-1password@trunk
   with:
-    onepass-token: ${{ secrets.OP_ACCOUNT_TOKEN }}
-    kubernetes-mode: "false"
+    kubernetes-mode: "true"
 ```
 
-This action configures access but does not read an item. Follow it with
-`load-github-token` or another 1Password-aware action.
+A step that reads 1Password on its own after this action must set
+`OP_SERVICE_ACCOUNT_TOKEN` in its own `env`.
 
 ### `load-github-token`
 
@@ -37,23 +40,21 @@ value does not have to be a GitHub token.
 |---|---:|---|---|
 | `secret-path` | No | Stone Home GitHub PAT path | `op://...` item field to read |
 | `kubernetes-mode` | No | `false` | Use `op read` instead of `load-secrets-action` |
-| `onepass-token` | Only for Kubernetes mode | — | Service-account token passed to the CLI |
+| `onepass-token` | Yes | — | Service-account token, set only on the step that reads the secret |
 
 | Output | Meaning |
 |---|---|
 | `token` | Masked value read from the requested 1Password path |
 
-On a normal runner, call `setup-1password` first:
+In Kubernetes mode, call `setup-1password` first so the `op` CLI is installed.
+On a normal runner this action is enough on its own:
 
 ```yaml
-- uses: stone-home/Action-Stone-DevOps/.github/actions/setup-1password@trunk
-  with:
-    onepass-token: ${{ secrets.OP_ACCOUNT_TOKEN }}
-
 - id: registry-token
   uses: stone-home/Action-Stone-DevOps/.github/actions/load-github-token@trunk
   with:
     secret-path: op://DevOps/Docker PAT - Git Action/credential
+    onepass-token: ${{ secrets.OP_ACCOUNT_TOKEN }}
 
 - run: some-command
   env:
@@ -125,8 +126,10 @@ GitHub, changelog, and npm plugins used by consumer configurations.
 
 ### `linter`
 
-Runs a base Super-Linter pass and optional language-specific passes. It reads a
-GitHub token from 1Password so status checks can be reported.
+Runs a base Super-Linter pass and optional language-specific passes. It reports
+status checks with the job's own `github.token` and reads nothing from
+1Password, because linters execute configuration from the repository being
+linted.
 
 | Input | Required | Default | Meaning |
 |---|---:|---|---|
@@ -134,8 +137,8 @@ GitHub token from 1Password so status checks can be reported.
 | `javascript` | No | `false` | Add JavaScript/TypeScript ESLint and Prettier validation |
 | `latex` | No | `false` | Add LaTeX validation |
 | `exclude` | No | `^test/` | Super-Linter exclusion regex |
-| `github-token-path` | No | Stone Home GitHub PAT path | 1Password URI for status reporting |
-| `onepass-token` | Yes | — | 1Password service-account token |
+| `github-token-path` | No | — | Deprecated and unused |
+| `onepass-token` | No | — | Deprecated and unused |
 | `kubernetes-mode` | No | `false` | Call `/action/lib/linter.sh` instead of the Docker action |
 
 ```yaml
@@ -156,7 +159,6 @@ jobs:
           python: "true"
           javascript: "false"
           exclude: ^(test/|vendor/)
-          onepass-token: ${{ secrets.OP_ACCOUNT_TOKEN }}
 ```
 
 For Kubernetes mode, run the job in

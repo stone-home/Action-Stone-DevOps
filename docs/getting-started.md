@@ -42,8 +42,8 @@ A job that calls a reusable workflow cannot also declare `runs-on` or `steps`.
 
 ## 3. Configure 1Password
 
-Most publishing, deployment, and linting entry points expect a 1Password
-service-account token. Store it in the caller repository as
+Most publishing and deployment entry points expect a 1Password
+service-account token. Linting does not. Store it in the caller repository as
 `OP_ACCOUNT_TOKEN`, then pass it only through `secrets` or an action input:
 
 ```yaml
@@ -58,7 +58,8 @@ with:
   onepass-token: ${{ secrets.OP_ACCOUNT_TOKEN }}
 ```
 
-Secret values stay in GitHub Secrets. The documented `op://...` values are
+The token is set only on the step that reads a secret and is never exported to
+the rest of the job. Secret values stay in GitHub Secrets. The documented `op://...` values are
 1Password item paths and may be overridden with the relevant `*-token-path` or
 `secret-path` input.
 

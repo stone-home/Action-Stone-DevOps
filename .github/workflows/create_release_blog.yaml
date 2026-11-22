@@ -45,24 +45,22 @@ jobs:
           echo "EOF" >> $GITHUB_ENV
           echo "RELEASE_URL=${{ inputs.release-url }}" >> $GITHUB_ENV
 
-      - name: Configure 1Password Service Account
-        uses: 1password/load-secrets-action/configure@v2
-        with:
-          service-account-token: ${{ secrets.onepass_token }}
-
-      - name: Load Docker credentials
+      # The service account token is set on this step only, and the PAT is
+      # returned as a step output, so pip install below sees neither.
+      - name: Load GitHub credentials
         id: load-credentials
         uses: 1password/load-secrets-action@v2
         with:
-          export-env: true
+          export-env: false
         env:
+          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.onepass_token }}
           GITHUB_TOKEN: "op://DevOps/Git PAT - Personal - GitHub Action/credential"
 
       - name: Checkout target repository
         uses: actions/checkout@v6
         with:
           repository: stonebo/stone-journey.github.io
-          token: ${{ env.GITHUB_TOKEN }}
+          token: ${{ steps.load-credentials.outputs.GITHUB_TOKEN }}
           path: hugo_blog
           ref: trunk
 
@@ -70,7 +68,7 @@ jobs:
         uses: actions/checkout@v6
         with:
           repository: stone-home/Action-Stone-DevOps
-          token: ${{ env.GITHUB_TOKEN }}
+          token: ${{ steps.load-credentials.outputs.GITHUB_TOKEN }}
           path: devops_repo
           ref: trunk
 
@@ -95,4 +93,4 @@ jobs:
           git commit -m "docs(project): add new blog for ${{ env.RELEASE_SUBJECT }} of ${{ inputs.project-name }}"
           git push
         env:
-          GITHUB_TOKEN: ${{ env.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ steps.load-credentials.outputs.GITHUB_TOKEN }}

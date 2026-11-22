@@ -13,8 +13,8 @@ on:
         default: "^test/"
     secrets:
       onepass_token:
-        description: "A access-token for 1password authorsation"
-        required: true
+        description: "Deprecated and unused. The linter no longer reads anything from 1Password"
+        required: false
 
 jobs:
   superLint:
@@ -41,28 +41,13 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-docker-
 
-      - name: Configure 1Password Service Account
-        uses: 1password/load-secrets-action/configure@v2
-        with:
-          # Persist the 1Password Service Account Authorization token
-          # for next steps.
-          # Keep in mind that every single step in the job is now
-          # able to access the token.
-          service-account-token: ${{ secrets.onepass_token }}
-
-      - name: Load Docker credentials
-        id: load-docker-credentials
-        uses: 1password/load-secrets-action@v2
-        with:
-          export-env: false
-        env:
-          GITHUB_TOKEN: "op://DevOps/Git PAT - StoneHome - Action/credential"
-
+      # No 1Password here on purpose: linters run configuration taken from the
+      # repository being linted, so this job holds only its own github.token.
       - name: Regular linter
         uses: super-linter/super-linter/slim@v7.2.1
         env:
           # To report GitHub Actions status checks
-          GITHUB_TOKEN: ${{ steps.load-docker-credentials.outputs.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ github.token }}
           VALIDATE_YAML: true
           VALIDATE_JSON: true
           VALIDATE_JSON_PRETTIER: true
@@ -77,7 +62,7 @@ jobs:
         if: ${{ inputs.python }}
         uses: super-linter/super-linter/slim@v7.2.1
         env:
-          GITHUB_TOKEN: ${{ steps.load-docker-credentials.outputs.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ github.token }}
           VALIDATE_PYTHON_BLACK: true
           VALIDATE_JUPYTER_NBQA_BLACK: true
           FILTER_REGEX_EXCLUDE: ${{ inputs.exclude }}

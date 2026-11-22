@@ -57,21 +57,19 @@ jobs:
       - name: Build Hugo Site
         run: hugo --minify
 
-      - name: Configure 1Password Service Account
-        uses: 1password/load-secrets-action/configure@v2
-        with:
-          service-account-token: ${{ secrets.onepass_token }}
-      - name: Load Docker credentials
+      # The service account token is set on this step only.
+      - name: Load GitHub credentials
         id: load-git-credentials
         uses: 1password/load-secrets-action@v2
         with:
-          export-env: true
+          export-env: false
         env:
+          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.onepass_token }}
           GITHUB_TOKEN: ${{ inputs.github-token-path }}
       - name: Deploy Hugo Site
         uses: peaceiris/actions-gh-pages@v4
         with:
-          github_token: ${{ env.GITHUB_TOKEN }}
+          github_token: ${{ steps.load-git-credentials.outputs.GITHUB_TOKEN }}
           publish_branch: gh-pages
           publish_dir: ./public
 
@@ -97,20 +95,18 @@ jobs:
         run: poetry install --with test
       - name: Build Mkdocs Site
         run: poetry run mkdocs build
-      - name: Configure 1Password Service Account
-        uses: 1password/load-secrets-action/configure@v2
-        with:
-          service-account-token: ${{ secrets.onepass_token }}
-      - name: Load Docker credentials
+      # The service account token is set on this step only.
+      - name: Load GitHub credentials
         id: load-git-credentials
         uses: 1password/load-secrets-action@v2
         with:
-          export-env: true
+          export-env: false
         env:
+          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.onepass_token }}
           GITHUB_TOKEN: ${{ inputs.github-token-path }}
       - name: Deploy Mkdocs Site
         uses: peaceiris/actions-gh-pages@v4
         with:
-          github_token: ${{ env.GITHUB_TOKEN }}
+          github_token: ${{ steps.load-git-credentials.outputs.GITHUB_TOKEN }}
           publish_branch: gh-pages
           publish_dir: ./site

@@ -61,7 +61,7 @@ custom jobs.
 
 | Action | Purpose | Usage and example |
 |---|---|---|
-| [`setup-1password`](.github/actions/setup-1password/action.yaml) | Configure the 1Password action or CLI | [Docs](docs/actions-setup-quality.md#setup-1password) |
+| [`setup-1password`](.github/actions/setup-1password/action.yaml) | Install the 1Password CLI in Kubernetes mode | [Docs](docs/actions-setup-quality.md#setup-1password) |
 | [`load-github-token`](.github/actions/load-github-token/action.yaml) | Read one secret from a 1Password URI and expose `token` | [Docs](docs/actions-setup-quality.md#load-github-token) |
 | [`setup-nodejs`](.github/actions/setup-nodejs/action.yaml) | Install Node.js and optionally run `npm ci` | [Docs](docs/actions-setup-quality.md#setup-nodejs) |
 | [`setup-poetry`](.github/actions/setup-poetry/action.yaml) | Install Python and Poetry and cache `.venv` | [Docs](docs/actions-setup-quality.md#setup-poetry) |

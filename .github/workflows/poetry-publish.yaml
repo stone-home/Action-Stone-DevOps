@@ -50,16 +50,15 @@ jobs:
           path: ./.venv
           key: venv-${{ hashFiles('poetry.lock') }}
       # 6. load Secrets from 1password
-      - name: Configure 1Password Service Account
-        uses: 1password/load-secrets-action/configure@v2
-        with:
-          service-account-token: ${{ secrets.onepass_token }}
-      - name: Load Docker credentials
-        id: load-docker-credentials
+      # The service account token is set on this step only, and the secrets
+      # are returned as step outputs instead of job-wide environment variables.
+      - name: Load credentials
+        id: load-credentials
         uses: 1password/load-secrets-action@v2
         with:
-          export-env: true
+          export-env: false
         env:
+          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.onepass_token }}
           GITHUB_TOKEN: "op://DevOps/Git PAT - StoneHome - Action/credential"
           PYPI_TOKEN: "op://DevOps/PyPi Token/credential"
 
@@ -86,5 +85,9 @@ jobs:
       - name: Build package
         run: poetry build
       # 10. Publish the package
+      # Poetry reads the PyPI token from POETRY_PYPI_TOKEN_PYPI, so it is not
+      # placed on the command line.
       - name: Publish package to PyPI
-        run: poetry publish -u __token__ -p ${{ env.PYPI_TOKEN }}
+        run: poetry publish
+        env:
+          POETRY_PYPI_TOKEN_PYPI: ${{ steps.load-credentials.outputs.PYPI_TOKEN }}

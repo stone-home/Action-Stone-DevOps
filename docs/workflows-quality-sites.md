@@ -27,7 +27,8 @@ jobs:
 ### `linter.yaml`
 
 Runs the hosted Super-Linter 7.2.1 base checks and optionally Python Black
-checks. It loads a fixed GitHub PAT path from 1Password for status reporting.
+checks. It reports status with the job's own `github.token` and reads nothing
+from 1Password.
 
 | Input | Type | Default | Meaning |
 |---|---|---|---|
@@ -36,7 +37,7 @@ checks. It loads a fixed GitHub PAT path from 1Password for status reporting.
 
 | Secret | Required |
 |---|---:|
-| `onepass_token` | Yes |
+| `onepass_token` | No (deprecated and unused) |
 
 ```yaml
 permissions:
@@ -50,8 +51,6 @@ jobs:
     with:
       python: true
       exclude: ^(test/|vendor/)
-    secrets:
-      onepass_token: ${{ secrets.OP_ACCOUNT_TOKEN }}
 ```
 
 Use the `linter` composite action when JavaScript, TypeScript, LaTeX, custom

@@ -103,4 +103,8 @@ runs:
     - name: Publish package to PyPI
       if: ${{ inputs.pypi-enable == 'true' }}
       shell: bash
-      run: poetry publish -u __token__ -p ${{ steps.get-pypi-token.outputs.token }}
+      # Poetry reads the PyPI token from POETRY_PYPI_TOKEN_PYPI, so it is not
+      # placed on the command line.
+      run: poetry publish
+      env:
+        POETRY_PYPI_TOKEN_PYPI: ${{ steps.get-pypi-token.outputs.token }}

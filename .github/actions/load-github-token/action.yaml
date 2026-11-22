@@ -12,8 +12,8 @@ inputs:
     required: false
     default: "false"
   onepass-token:
-    description: "The Service Account Token. Only needed when kubernetes-mode is true"
-    required: false
+    description: "The Service Account Token. Passed only to the step that reads the secret"
+    required: true
 
 outputs:
   # 2. Map the step output to the action output so workflows can use it
@@ -24,13 +24,16 @@ outputs:
 runs:
   using: "composite"
   steps:
+    # The service account token is set on this step only. It is never written
+    # to GITHUB_ENV, so later steps (npm ci, builds, linters) cannot read it.
     - name: Load Secret
       id: load-secret
-      if: ${{ inputs.kubernetes-mode == 'false' }}
+      if: ${{ inputs.kubernetes-mode != 'true' }}
       uses: 1password/load-secrets-action@v2
       with:
         export-env: false # Keep false to use outputs
       env:
+        OP_SERVICE_ACCOUNT_TOKEN: ${{ inputs.onepass-token }}
         ONEPASS_TOKEN: ${{ inputs.secret-path }}
     - name: Load Secret with op
       id: load-secret-cli

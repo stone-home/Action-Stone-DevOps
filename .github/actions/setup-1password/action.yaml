@@ -1,9 +1,13 @@
 name: "Setup 1Password"
-description: "Configures 1Password Service Account"
+description: "Installs the 1Password CLI in kubernetes mode. Does not export the service account token"
+
+# This action no longer exports OP_SERVICE_ACCOUNT_TOKEN to the job. The token
+# is passed to load-github-token, which sets it on the one step that reads the
+# secret. On a normal runner this action therefore has nothing to do.
 inputs:
   onepass-token:
-    description: "The Service Account Token"
-    required: true
+    description: "Deprecated and unused. Pass the token to load-github-token instead"
+    required: false
   kubernetes-mode:
     description: "enable kubernetes mode, meaning that this action run on a host with ARC kubernetes mode"
     required: false
@@ -12,11 +16,6 @@ inputs:
 runs:
   using: "composite"
   steps:
-    - name: Configure 1Password Service Account
-      if: ${{ inputs.kubernetes-mode == 'false' }}
-      uses: 1password/load-secrets-action/configure@v2
-      with:
-        service-account-token: ${{ inputs.onepass-token }}
     - name: Ensure unzip and CA certificates (check first, install if missing)
       shell: bash
       if: ${{ inputs.kubernetes-mode == 'true' }}

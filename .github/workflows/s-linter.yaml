@@ -23,5 +23,3 @@ jobs:
         with:
           fetch-depth: 0
       - uses: ./.github/actions/linter
-        with:
-          onepass-token: ${{ secrets.OP_ACCOUNT_TOKEN }}
