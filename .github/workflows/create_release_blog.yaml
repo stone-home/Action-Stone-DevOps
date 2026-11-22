@@ -29,27 +29,23 @@ on:
         description: "A access-token for 1password authorsation"
         required: true
 
+# The job token is read-only here. Everything that writes uses a token read
+# from 1Password, so the job's own token never needs more than this.
+permissions:
+  contents: read
+
 jobs:
   blog-creating:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
-
-      - name: Fetch release information
-        id: release
-        run: |
-          echo "RELEASE_SUBJECT=${{ inputs.release-subject }}" >> $GITHUB_ENV
-          echo "RELEASE_BODY<<EOF" >> $GITHUB_ENV
-          echo "${{ inputs.release-body }}" >> $GITHUB_ENV
-          echo "EOF" >> $GITHUB_ENV
-          echo "RELEASE_URL=${{ inputs.release-url }}" >> $GITHUB_ENV
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       # The service account token is set on this step only, and the PAT is
       # returned as a step output, so pip install below sees neither.
       - name: Load GitHub credentials
         id: load-credentials
-        uses: 1password/load-secrets-action@v2
+        uses: 1password/load-secrets-action@70062d7a876d3eb6334754fa26efd2fbd90c32f2 # v5.0.1
         with:
           export-env: false
         env:
@@ -57,32 +53,47 @@ jobs:
           GITHUB_TOKEN: "op://DevOps/Git PAT - Personal - GitHub Action/credential"
 
       - name: Checkout target repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: stonebo/stone-journey.github.io
           token: ${{ steps.load-credentials.outputs.GITHUB_TOKEN }}
           path: hugo_blog
           ref: trunk
 
+      # Public repo: the job's own token is enough, so the PAT is not used here.
       - name: Checkout DevOps repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: stone-home/Action-Stone-DevOps
-          token: ${{ steps.load-credentials.outputs.GITHUB_TOKEN }}
           path: devops_repo
           ref: trunk
+          persist-credentials: false
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: ${{ inputs.python-version }}
 
+      # Release text is untrusted input (it is built from commit titles). It is
+      # passed through env and read as "$VAR", never expanded into the script.
       - name: Install dependency and generate new file
+        env:
+          PROJECT_NAME: ${{ inputs.project-name }}
+          RELEASE_SUBJECT: ${{ inputs.release-subject }}
+          RELEASE_BODY: ${{ inputs.release-body }}
+          RELEASE_URL: ${{ inputs.release-url }}
+          HERO_IMAGE: ${{ inputs.hero-image }}
         run: |
-          export PYTHONPATH="${PYTHONPATH}:${{ github.workspace }}"
+          export PYTHONPATH="${PYTHONPATH}:${GITHUB_WORKSPACE}"
           python -m pip install --upgrade pip
-          pip install ures
-          python devops_repo/scripts/release_blog.py -p "${{ inputs.project-name }}" -v "${{ env.RELEASE_SUBJECT }}" -n "${{ env.RELEASE_BODY }}" -u "${{ env.RELEASE_URL }}" -o "hugo_blog" --hero "${{ inputs.hero-image}}"
+          pip install ures==3.2.1
+          python devops_repo/scripts/release_blog.py \
+            --project="$PROJECT_NAME" \
+            --version="$RELEASE_SUBJECT" \
+            --notes="$RELEASE_BODY" \
+            --url="$RELEASE_URL" \
+            --output-dir="hugo_blog" \
+            --hero="$HERO_IMAGE"
 
       - name: Commit changes
         run: |
@@ -90,7 +101,9 @@ jobs:
           git config --global user.email "github@stone-bo.com"
           git config --global user.name "Blog Creation Bot"
           git add ./content/posts/project
-          git commit -m "docs(project): add new blog for ${{ env.RELEASE_SUBJECT }} of ${{ inputs.project-name }}"
+          git commit -m "docs(project): add new blog for ${RELEASE_SUBJECT} of ${PROJECT_NAME}"
           git push
         env:
           GITHUB_TOKEN: ${{ steps.load-credentials.outputs.GITHUB_TOKEN }}
+          PROJECT_NAME: ${{ inputs.project-name }}
+          RELEASE_SUBJECT: ${{ inputs.release-subject }}

@@ -6,12 +6,14 @@ repos:
         description: Detect secrets in your data.
         #         entry: bash -c 'docker run -v "$(pwd):/workdir" --rm us-docker.pkg.dev/thog-artifacts/public/scanner:latest git main HEAD /workdir'
         #        entry: bash -c 'trufflehog git file://. --since-commit HEAD --results=verified,unknown --fail'
-        # For running trufflehog in docker, use the following entry instead:
-        entry: bash -c 'docker run --rm -v "$(pwd):/workdir" -i --rm trufflesecurity/trufflehog:latest git file:///workdir --since-commit HEAD --results=verified,unknown --fail'
+        # For running trufflehog in docker, use the following entry instead.
+        # Same scanner version as .github/actions/secret-check; the digest keeps
+        # the tag from being repointed.
+        entry: bash -c 'docker run --rm -v "$(pwd):/workdir" -i --rm trufflesecurity/trufflehog:3.100.0@sha256:8fd07ea46a3f59583c4d50f006d8cf150530141b28969c3c34cc455cb9165a6b git file:///workdir --since-commit HEAD --results=verified,unknown --fail'
         language: system
         stages: ["pre-commit", "pre-push"]
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v3.2.0
+    rev: 3e8a8703264a2f4a69428a0aa4dcb512790b2c8c # frozen: v6.0.0
     hooks:
       - id: trailing-whitespace
       - id: end-of-file-fixer
@@ -26,7 +28,7 @@ repos:
     hooks:
       - id: prettier
         name: Run Prettier
-        entry: npx prettier --write
+        entry: npx --yes prettier@3.10.1 --write
         language: system
         files: \.json$|\.yaml$|\.yml$
         types: [file]

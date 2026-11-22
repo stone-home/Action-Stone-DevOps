@@ -182,7 +182,7 @@ setup_python_environment() {
     conda activate "$env_name"
 
     log_info "Installing ures package..."
-    pip install ures
+    pip install ures==3.2.1
 
     log_success "Python environment '$env_name' created successfully with ures installed"
     log_info "To activate this environment, run: conda activate $env_name"

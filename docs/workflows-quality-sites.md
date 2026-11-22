@@ -26,7 +26,7 @@ jobs:
 
 ### `linter.yaml`
 
-Runs the hosted Super-Linter 7.2.1 base checks and optionally Python Black
+Runs the hosted Super-Linter 8.7.0 base checks and optionally Python Black
 checks. It reports status with the job's own `github.token` and reads nothing
 from 1Password.
 
@@ -58,7 +58,7 @@ secret paths, or Kubernetes mode is needed.
 
 ### `secret-check.yaml`
 
-Checks out full history and scans it with `trufflesecurity/trufflehog@main`.
+Checks out full history and scans it with TruffleHog 3.100.0, pinned to a commit.
 It declares no inputs or secrets.
 
 ```yaml

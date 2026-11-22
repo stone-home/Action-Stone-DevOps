@@ -11,6 +11,15 @@ description: "Build and push with Docker (hosted) or Kaniko in a separate step p
 # The Kaniko script is scripts/docker/kaniko-build.sh in this repo. It is
 # cloned to .devops inside the workspace, so the step pod gets it with the
 # workspace copy.
+#
+# Registry credential: Kaniko runs every Dockerfile RUN line in the same
+# filesystem that holds /kaniko/.docker/config.json, so anything the image
+# build installs can read the push credential. Kaniko cannot hide it. What can
+# be controlled is how much that credential is worth:
+#   - ghcr: leave registry-password-path empty. The job's own github.token is
+#     used. It only reaches this repository's packages and dies with the job.
+#   - dockerhub: there is no job token, so the 1Password token is used. Give it
+#     the narrowest scope the registry offers.
 
 inputs:
   registry:
@@ -18,16 +27,16 @@ inputs:
     required: false
     default: "ghcr"
   registry-username:
-    description: "Registry username"
+    description: "Registry username. Optional for ghcr with the job token (defaults to the workflow actor)"
     required: false
     default: ""
   registry-password-path:
-    description: "1Password secret path for registry token"
+    description: "1Password secret path for the registry token. Empty: ghcr uses the job's github.token (needs packages: write), dockerhub uses op://DevOps/Docker PAT - Git Action/credential"
     required: false
-    default: "op://DevOps/Docker PAT - Git Action/credential"
+    default: ""
   onepass-token:
-    description: "OnePassword service account token"
-    required: true
+    description: "OnePassword service account token. Not used when ghcr authenticates with the job token"
+    required: false
   kubernetes-mode:
     description: "true = Kaniko in a separate step pod (no Docker). Job container needs bash, git, op, curl, jq"
     required: false
@@ -108,14 +117,34 @@ runs:
       env:
         REGISTRY: ${{ inputs.registry }}
         REGISTRY_USER: ${{ inputs.registry-username }}
+        PASSWORD_PATH: ${{ inputs.registry-password-path }}
+        ACTOR: ${{ github.actor }}
         IMAGE_NAME: ${{ inputs.image-name }}
         TAGS: ${{ inputs.tags }}
       run: |
         set -euo pipefail
-        if [ -z "$REGISTRY_USER" ]; then
+        # Pick the credential source. An explicit 1Password path always wins.
+        auth=1password
+        user="$REGISTRY_USER"
+        password_path="$PASSWORD_PATH"
+        if [ -z "$password_path" ]; then
+          if [ "$REGISTRY" = "ghcr" ]; then
+            auth=github-token
+            [ -n "$user" ] || user="$ACTOR"
+          else
+            password_path="op://DevOps/Docker PAT - Git Action/credential"
+          fi
+        fi
+        if [ -z "$user" ]; then
           echo "::error::registry-username is required"
           exit 1
         fi
+        echo "Registry auth: ${auth}"
+        {
+          echo "auth=${auth}"
+          echo "user=${user}"
+          echo "password-path=${password_path}"
+        } >> "$GITHUB_OUTPUT"
         name="$IMAGE_NAME"
         if [ -z "$name" ] && [ "$REGISTRY" = "ghcr" ]; then
           name="ghcr.io/${GITHUB_REPOSITORY}"
@@ -140,6 +169,7 @@ runs:
         echo "tags=${tags_full}" >> "$GITHUB_OUTPUT"
 
     - name: Setup 1Password
+      if: steps.image.outputs.auth == '1password'
       uses: stone-home/Action-Stone-DevOps/.github/actions/setup-1password@trunk
       with:
         onepass-token: ${{ inputs.onepass-token }}
@@ -147,32 +177,33 @@ runs:
 
     - name: Get Registry token
       id: get-registry-token
+      if: steps.image.outputs.auth == '1password'
       uses: stone-home/Action-Stone-DevOps/.github/actions/load-github-token@trunk
       with:
-        secret-path: ${{ inputs.registry-password-path }}
+        secret-path: ${{ steps.image.outputs.password-path }}
         kubernetes-mode: ${{ inputs.kubernetes-mode }}
         onepass-token: ${{ inputs.onepass-token }}
 
     # ---------------- Docker (hosted runners) ----------------
     - name: Log in to GitHub Container Registry
       if: inputs.registry == 'ghcr' && inputs.kubernetes-mode != 'true'
-      uses: docker/login-action@v3
+      uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
       with:
         registry: ghcr.io
-        username: ${{ inputs.registry-username }}
-        password: ${{ steps.get-registry-token.outputs.token }}
+        username: ${{ steps.image.outputs.user }}
+        password: ${{ steps.image.outputs.auth == 'github-token' && github.token || steps.get-registry-token.outputs.token }}
 
     - name: Log in to Docker Hub
       if: inputs.registry == 'dockerhub' && inputs.kubernetes-mode != 'true'
-      uses: docker/login-action@v3
+      uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
       with:
-        username: ${{ inputs.registry-username }}
+        username: ${{ steps.image.outputs.user }}
         password: ${{ steps.get-registry-token.outputs.token }}
 
     - name: Build and push Docker image
       id: build
       if: inputs.kubernetes-mode != 'true'
-      uses: docker/build-push-action@v6
+      uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
       with:
         context: ${{ inputs.context }}
         file: ${{ inputs.dockerfile }}
@@ -180,14 +211,15 @@ runs:
         tags: ${{ steps.image.outputs.tags }}
 
     # ---------------- Kaniko (ARC kubernetes-mode) ----------------
-    # v1.24.0 is the last upstream release (2025-05-23).
+    # v1.24.0 is the last upstream release (2025-05-23); upstream is archived.
+    # Pinned by digest so the tag cannot be repointed at different contents.
     - name: Build and push (Kaniko step pod)
       if: inputs.kubernetes-mode == 'true'
-      uses: docker://gcr.io/kaniko-project/executor:v1.24.0-debug
+      uses: docker://gcr.io/kaniko-project/executor:v1.24.0-debug@sha256:2562c4fe551399514277ffff7dcca9a3b1628c4ea38cb017d7286dc6ea52f4cd
       env:
         REGISTRY: ${{ inputs.registry }}
-        REGISTRY_USER: ${{ inputs.registry-username }}
-        REGISTRY_PASSWORD: ${{ steps.get-registry-token.outputs.token }}
+        REGISTRY_USER: ${{ steps.image.outputs.user }}
+        REGISTRY_PASSWORD: ${{ steps.image.outputs.auth == 'github-token' && github.token || steps.get-registry-token.outputs.token }}
         BUILD_TAGS_FULL: ${{ steps.image.outputs.tags }}
         BUILD_CONTEXT: ${{ inputs.context }}
         BUILD_DOCKERFILE: ${{ inputs.dockerfile }}
@@ -205,8 +237,8 @@ runs:
       shell: bash
       env:
         REGISTRY: ${{ inputs.registry }}
-        REGISTRY_USER: ${{ inputs.registry-username }}
-        REGISTRY_PASSWORD: ${{ steps.get-registry-token.outputs.token }}
+        REGISTRY_USER: ${{ steps.image.outputs.user }}
+        REGISTRY_PASSWORD: ${{ steps.image.outputs.auth == 'github-token' && github.token || steps.get-registry-token.outputs.token }}
         BUILD_TAGS_FULL: ${{ steps.image.outputs.tags }}
       run: |
         set -euo pipefail

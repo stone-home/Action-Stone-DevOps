@@ -67,7 +67,7 @@ runs:
     - name: Create Release Branch
       shell: bash
       run: |
-        BRANCH_NAME="versions/${{ inputs.version-id }}"
+        BRANCH_NAME="versions/${VERSION_ID}"
         git config user.name "Publish Action"
         git config user.email "github@stone-bo.com"
         git checkout -b "$BRANCH_NAME"
@@ -75,15 +75,20 @@ runs:
         echo "Created branch: $BRANCH_NAME"
       env:
         GITHUB_TOKEN: ${{ steps.get-github-token.outputs.token}}
+        # A tag or branch name can end up here, so it is read as "$VERSION_ID"
+        # and never expanded into the script.
+        VERSION_ID: ${{ inputs.version-id }}
 
     # 8. Update version in pyproject.toml to match the tag version
     - name: Update version in pyproject.toml
       shell: bash
+      env:
+        VERSION_ID: ${{ inputs.version-id }}
       run: |
-        NEW_VERSION=$(echo ${{ inputs.version-id }} | sed 's/^v//') # Remove 'v' prefix if it exists
+        NEW_VERSION="${VERSION_ID#v}" # Remove 'v' prefix if it exists
         poetry version "$NEW_VERSION"
         git add pyproject.toml
-        git commit -m "chore(poetry): bumping the version to ${{ inputs.version-id }}"
+        git commit -m "chore(poetry): bumping the version to ${VERSION_ID}"
         git push
     # 9. Build package
     - name: Build package

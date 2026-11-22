@@ -31,19 +31,19 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           # super-linter needs the full git history to get the
           # list of files that changed across commits
           fetch-depth: 0
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: 24
+          node-version: 26
       # The service account token is set on this step only, so npm ci and the
       # build below cannot read it.
       - name: Load GitHub credentials
         id: load-credentials
-        uses: 1password/load-secrets-action@v2
+        uses: 1password/load-secrets-action@70062d7a876d3eb6334754fa26efd2fbd90c32f2 # v5.0.1
         with:
           export-env: false
         env:
@@ -53,7 +53,7 @@ jobs:
       - name: Cache TeX Live installation
         id: cache-texlive
         if: ${{ inputs.latex_project }}
-        uses: actions/cache@v4
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           key: ${{ runner.os }}-texlive-latest
           path: /usr/local/texlive
@@ -72,7 +72,12 @@ jobs:
         if: ${{ inputs.nodejs_project }}
         run: npm run build
 
-      - run: npx semantic-release@25.0.2
+      # Same pinned toolchain as the publish-* actions; nothing is downloaded
+      # at release time beyond what that action pins.
+      - name: Install Semantic Release
+        uses: stone-home/Action-Stone-DevOps/.github/actions/install-semantic-release@trunk
+
+      - run: npx --no-install semantic-release
         name: create a new release page and tag
         env:
           GITHUB_TOKEN: ${{ steps.load-credentials.outputs.GITHUB_TOKEN }}

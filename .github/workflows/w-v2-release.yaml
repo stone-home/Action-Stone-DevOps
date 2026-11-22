@@ -31,7 +31,7 @@ on:
       nodejs-version:
         required: false
         type: string
-        default: "24"
+        default: "26"
         description: "The version of NodeJS"
       python-version:
         required: false
@@ -73,12 +73,12 @@ on:
         type: string
         default: "ghcr"
       docker-hub-username:
-        description: "Docker Hub username (required when docker-registry is dockerhub)"
+        description: "Registry username (required when docker-registry is dockerhub; optional for ghcr with the job token)"
         required: false
         type: string
         default: ""
       docker-hub-password-path:
-        description: "1Password secret path for Docker Hub token (required when docker-registry is dockerhub)"
+        description: "1Password secret path for the registry token. Empty: ghcr uses the job token, dockerhub uses the default Docker PAT path"
         required: false
         type: string
         default: ""
@@ -107,18 +107,24 @@ on:
         description: "A access-token for 1password authorsation"
         required: true
 
+# Read-only by default; each job below asks only for what it uses.
+#  - contents: write  git pushes (tags, branches, release commits) go out with
+#                     the job token that actions/checkout stored.
+#  - id-token: write  only the npm job, for OIDC trusted publishing.
+# Releases, issue comments and pull-request comments are made through the API
+# with the token read from 1Password, so the job token needs no issues or
+# pull-requests permission.
 permissions:
-  contents: write # to be able to publish a GitHub release
-  issues: write # to be able to comment on released issues
-  pull-requests: write # to be able to comment on released pull requests
-  id-token: write # Required for OIDC/Trusted Publishing
+  contents: read
 jobs:
   python-publish:
     name: Publish Python Project to PyPi
     if: inputs.python-project
     runs-on: ${{ inputs.run-on }}
+    permissions:
+      contents: write
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ inputs.default-branch }}
           fetch-depth: 0
@@ -136,8 +142,11 @@ jobs:
     name: Release Project to GitHub Rlease in NPM environment
     if: inputs.nodejs-project
     runs-on: ${{ inputs.run-on }}
+    permissions:
+      contents: write
+      id-token: write
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ inputs.default-branch }}
           fetch-depth: 0
@@ -151,8 +160,10 @@ jobs:
     name: Release Project to GitHub Rlease for LaTex Documents
     if: inputs.latex-project
     runs-on: ${{ inputs.run-on }}
+    permissions:
+      contents: write
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ inputs.default-branch }}
           fetch-depth: 0
@@ -170,7 +181,7 @@ jobs:
       contents: read
       packages: write
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ inputs.default-branch }}
           fetch-depth: 0
@@ -189,8 +200,10 @@ jobs:
     name: Basic Release Process
     if: inputs.python-project == false && inputs.nodejs-project == false && inputs.latex-project == false && inputs.docker-push == false
     runs-on: ${{ inputs.run-on }}
+    permissions:
+      contents: write
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ inputs.default-branch }}
           fetch-depth: 0

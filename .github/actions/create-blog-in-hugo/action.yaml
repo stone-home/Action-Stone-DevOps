@@ -36,16 +36,6 @@ inputs:
 runs:
   using: "composite"
   steps:
-    - name: Fetch release information
-      id: release
-      shell: bash
-      run: |
-        echo "RELEASE_SUBJECT=${{ inputs.release-subject }}" >> $GITHUB_ENV
-        echo "RELEASE_BODY<<EOF" >> $GITHUB_ENV
-        echo "${{ inputs.release-body }}" >> $GITHUB_ENV
-        echo "EOF" >> $GITHUB_ENV
-        echo "RELEASE_URL=${{ inputs.release-url }}" >> $GITHUB_ENV
-
     - name: Setup 1Password
       uses: stone-home/Action-Stone-DevOps/.github/actions/setup-1password@trunk
       with:
@@ -68,23 +58,24 @@ runs:
         apt-get install -y git
 
     - name: Checkout target repository
-      uses: actions/checkout@v6
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
         repository: stonebo/stone-journey.github.io
         token: ${{ steps.get-token.outputs.token }}
         path: hugo_blog
         ref: trunk
 
+    # Public repo: the job's own token is enough, so the PAT is not used here.
     - name: Checkout DevOps repository
-      uses: actions/checkout@v6
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
         repository: stone-home/Action-Stone-DevOps
-        token: ${{ steps.get-token.outputs.token }}
         path: devops_repo
         ref: trunk
+        persist-credentials: false
 
     - name: Set up Python
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
       with:
         python-version: ${{ inputs.python-version }}
 
@@ -92,18 +83,28 @@ runs:
       shell: bash
       run: |
         python -m pip install --upgrade pip
-        pip install ures
+        pip install ures==3.2.1
 
-    - name: Generate a new blo
+    # Release text is untrusted input (it is built from commit titles). It is
+    # passed through env and read as "$VAR", never expanded into the script, so
+    # backticks or $(...) in a release note are plain text. The --name=value
+    # form keeps a value that starts with "-" from being read as another flag.
+    - name: Generate a new blog
       shell: bash
+      env:
+        PROJECT_NAME: ${{ inputs.project-name }}
+        RELEASE_SUBJECT: ${{ inputs.release-subject }}
+        RELEASE_BODY: ${{ inputs.release-body }}
+        RELEASE_URL: ${{ inputs.release-url }}
+        HERO_IMAGE: ${{ inputs.hero-image }}
       run: |
         python devops_repo/scripts/release_blog.py \
-        -p "${{ inputs.project-name }}" \
-        -v "${{ env.RELEASE_SUBJECT }}" \
-        -n "${{ env.RELEASE_BODY }}" \
-        -u "${{ env.RELEASE_URL }}" \
-        -o "hugo_blog" \
-        --hero "${{ inputs.hero-image}}"
+          --project="$PROJECT_NAME" \
+          --version="$RELEASE_SUBJECT" \
+          --notes="$RELEASE_BODY" \
+          --url="$RELEASE_URL" \
+          --output-dir="hugo_blog" \
+          --hero="$HERO_IMAGE"
 
     - name: Commit changes
       shell: bash
@@ -114,7 +115,9 @@ runs:
         git config --global user.email "github@stone-bo.com"
         git config --global user.name "Blog Creation Bot"
         git add ./content/posts/project
-        git commit -m "docs(project): add new blog for ${{ env.RELEASE_SUBJECT }} of ${{ inputs.project-name }}"
+        git commit -m "docs(project): add new blog for ${RELEASE_SUBJECT} of ${PROJECT_NAME}"
         git push
       env:
         GITHUB_TOKEN: ${{ steps.get-token.outputs.token }}
+        PROJECT_NAME: ${{ inputs.project-name }}
+        RELEASE_SUBJECT: ${{ inputs.release-subject }}

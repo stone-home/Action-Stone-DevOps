@@ -3,7 +3,7 @@ inputs:
   node-version:
     description: "NodeJS version"
     required: false
-    default: "24"
+    default: "26"
   github-token-path:
     description: "The path of GitHub token"
     required: false
@@ -16,7 +16,7 @@ inputs:
     required: false
     default: "false"
   use-unified-semantic-version:
-    description: "Use unified semantic release version"
+    description: "Deprecated and ignored. The pinned semantic-release toolchain is always installed"
     required: false
     default: "true"
 
@@ -37,7 +37,7 @@ runs:
 
     # 2. Setup LaTeX (The Heavy Logic)
     - name: Cache TeX Live
-      uses: actions/cache@v4
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         key: ${{ runner.os }}-texlive-latest
         path: /usr/local/texlive
@@ -65,18 +65,19 @@ runs:
 
     # 4. Release (Semantic Release will likely run latex build plugins here)
     - name: Install Semantic Release
-      if: ${{ inputs.use-unified-semantic-version == 'true' }}
       uses: stone-home/Action-Stone-DevOps/.github/actions/install-semantic-release@trunk
 
     - name: Fetch DevOps scripts
-      uses: actions/checkout@v4
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
         repository: stone-home/Action-Stone-DevOps
         ref: trunk
         path: .devops
-    
+
+    # --no-install: run only the pinned copy installed above. If it is missing
+    # the step fails instead of downloading whatever version is latest.
     - name: Semantic Release
       shell: bash
-      run: npx semantic-release
+      run: npx --no-install semantic-release
       env:
         GITHUB_TOKEN: ${{ steps.get-token.outputs.token }}

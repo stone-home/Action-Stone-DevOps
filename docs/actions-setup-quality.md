@@ -9,8 +9,9 @@ modes, and permissions.
 
 ### `setup-1password`
 
-In Kubernetes mode it installs the `op` CLI and ensures `unzip` and CA
-certificates exist. On a normal runner it does nothing.
+In Kubernetes mode it installs the `op` CLI and ensures `unzip`, `gpg`, and CA
+certificates exist (`gpg` is used to verify the CLI's signature). On a normal
+runner it does nothing.
 
 It does not export the service-account token. The token is never written to the
 job environment; `load-github-token` sets it on the single step that reads a
@@ -67,14 +68,14 @@ Installs Node.js with `actions/setup-node` and runs `npm ci` by default.
 
 | Input | Required | Default | Meaning |
 |---|---:|---|---|
-| `node-version` | No | `24` | Node.js version |
+| `node-version` | No | `26` | Node.js version |
 | `install-dependencies` | No | `true` | Run `npm ci` in the current workspace |
 
 ```yaml
 - uses: actions/checkout@v6
 - uses: stone-home/Action-Stone-DevOps/.github/actions/setup-nodejs@trunk
   with:
-    node-version: "24"
+    node-version: "26"
     install-dependencies: "true"
 ```
 
@@ -105,7 +106,7 @@ virtual environment by runner OS, Python version, and `poetry.lock` hash.
 ### `install-semantic-release`
 
 Installs a pinned semantic-release toolchain into the current Node workspace,
-sets up Python 3.12, and installs `ures==3.1.0`. It prepares dependencies; it
+sets up Python 3.12, and installs `ures==3.2.1`. It prepares dependencies; it
 does not invoke `semantic-release` itself.
 
 The installed Node packages are semantic-release 25.0.9 plus the exec, git,
@@ -162,15 +163,16 @@ jobs:
 ```
 
 For Kubernetes mode, run the job in
-`ghcr.io/super-linter/super-linter:v8.5.0`; the action expects the container's
+`ghcr.io/super-linter/super-linter:v8.7.0`; the action expects the container's
 `/action/lib/linter.sh` path. See `.github/workflows/s-linter.yaml` in this
 repository for the working shape.
 
 ### `secret-check`
 
-Scans Git history with TruffleHog. The normal path uses the marketplace Docker
-action with `--fail`; the Kubernetes path installs the CLI when needed and runs
-it directly.
+Scans Git history with TruffleHog 3.100.0 and fails the job when a verified or
+unknown secret is found. The normal path uses the marketplace Docker action at a
+pinned commit; the Kubernetes path installs that same version, checks the
+download against a pinned SHA-256, and runs it with `--fail`.
 
 | Input | Required | Default | Meaning |
 |---|---:|---|---|
@@ -200,7 +202,7 @@ Calls `setup-nodejs`, which runs `npm ci`, then runs `npm test`.
 
 | Input | Required | Default | Meaning |
 |---|---:|---|---|
-| `node-version` | No | `24` | Node.js version |
+| `node-version` | No | `26` | Node.js version |
 
 ```yaml
 jobs:

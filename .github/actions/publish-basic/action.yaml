@@ -4,7 +4,7 @@ inputs:
   node-version:
     description: "NodeJS version"
     required: false
-    default: "24"
+    default: "26"
   onepass-token:
     description: "OnePassword Token"
     required: true
@@ -17,7 +17,7 @@ inputs:
     required: false
     default: "false"
   use-unified-semantic-version:
-    description: "Use unified semantic release version"
+    description: "Deprecated and ignored. The pinned semantic-release toolchain is always installed"
     required: false
     default: "true"
 
@@ -49,13 +49,14 @@ runs:
         secret-path: ${{ inputs.github-token-path }}
         kubernetes-mode: ${{ inputs.kubernetes-mode }}
         onepass-token: ${{ inputs.onepass-token }}
-    
+
     - name: Install Semantic Release
-      if: ${{ inputs.use-unified-semantic-version == 'true' }}
       uses: stone-home/Action-Stone-DevOps/.github/actions/install-semantic-release@trunk
 
+    # --no-install: run only the pinned copy installed above. If it is missing
+    # the step fails instead of downloading whatever version is latest.
     - name: Semantic Release
       shell: bash
-      run: npx semantic-release
+      run: npx --no-install semantic-release
       env:
         GITHUB_TOKEN: ${{ steps.get-token.outputs.token }}

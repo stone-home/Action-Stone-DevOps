@@ -12,14 +12,14 @@ jobs:
     #    runs-on: ubuntu-latest
     runs-on: arc-runner-large
     container:
-      image: ghcr.io/super-linter/super-linter:v8.5.0
+      image: ghcr.io/super-linter/super-linter:v8.7.0
     permissions:
       contents: read
       packages: read
       statuses: write
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
       - uses: ./.github/actions/linter

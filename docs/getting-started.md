@@ -71,7 +71,7 @@ Start with the smallest set required by the selected component.
 |---|---|
 | Checkout, tests, or secret scan | `contents: read` |
 | Super-Linter status reporting | `contents: read`, `packages: read`, `statuses: write` |
-| GitHub release or version branch | `contents: write`; semantic-release may also need `issues: write` and `pull-requests: write` |
+| GitHub release or version branch | `contents: write`; add `issues: write` and `pull-requests: write` only if semantic-release runs with the job token instead of a 1Password token |
 | Push an image to GHCR | `contents: read`, `packages: write` |
 | Trusted publication | `id-token: write` plus the package registry's trusted-publisher configuration |
 
@@ -116,7 +116,6 @@ These components perform real writes:
 - release actions create tags, releases, branches, commits, or registry uploads;
 - deployment actions push `gh-pages`;
 - `create-blog-in-hugo` commits to the Stone Hugo repository;
-- `obsidian-to-dify` sends documents to a configured Dify service;
 - Docker and package publishers upload external artifacts.
 
 Use test repositories or dry-run facilities in the underlying toolchain before

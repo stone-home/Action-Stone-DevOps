@@ -12,7 +12,6 @@ toolchain.
 | Add tests, linting, or secret scanning | [Quality actions](docs/actions-setup-quality.md#quality-actions) or [quality workflows](docs/workflows-quality-sites.md#quality-workflows) |
 | Deploy Hugo or MkDocs to GitHub Pages | [Site actions](docs/actions-sites-integrations.md#site-deployment) |
 | Publish release notes to the Stone blog | [`create-blog-in-hugo`](docs/actions-sites-integrations.md#create-blog-in-hugo) |
-| Upload Obsidian notes to Dify | [`obsidian-to-dify`](docs/actions-sites-integrations.md#obsidian-to-dify) |
 | Configure a LaTeX semantic release | [LaTeX release guide](docs/latex-release.md) |
 | Maintain this automation repository | [Repository maintenance](docs/maintenance.md) |
 
@@ -88,7 +87,6 @@ custom jobs.
 | [`deploy-hugo-site`](.github/actions/deploy-hugo-site/action.yaml) | Build Hugo and publish `public/` to `gh-pages` | [Docs](docs/actions-sites-integrations.md#deploy-hugo-site) |
 | [`deploy-mkdocs-site`](.github/actions/deploy-mkdocs-site/action.yaml) | Build MkDocs with Poetry and publish `site/` | [Docs](docs/actions-sites-integrations.md#deploy-mkdocs-site) |
 | [`create-blog-in-hugo`](.github/actions/create-blog-in-hugo/action.yaml) | Create and push a release post to the Stone Hugo repository | [Docs](docs/actions-sites-integrations.md#create-blog-in-hugo) |
-| [`obsidian-to-dify`](.github/actions/obsidian-to-dify/action.yaml) | Upload notes through the private Python RAG project | [Docs](docs/actions-sites-integrations.md#obsidian-to-dify) |
 
 ## Workflow catalog
 

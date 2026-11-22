@@ -82,6 +82,6 @@ for file in scripts/latex/*.sh test/run-tests.sh; do bash -n "$file"; done
 git diff --check
 ```
 
-Actual release, deployment, registry, 1Password, ARC, and Dify behavior requires
+Actual release, deployment, registry, 1Password, and ARC behavior requires
 an authorized integration run. Local syntax and smoke tests do not prove those
 external paths.

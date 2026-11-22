@@ -32,24 +32,29 @@ on:
         description: "An access-token for 1password authorization"
         required: true
 
+# The job token is read-only here. Everything that writes uses a token read
+# from 1Password, so the job's own token never needs more than this.
+permissions:
+  contents: read
+
 jobs:
   hugo:
     name: Hugo Build & Deploy
     if: ${{ inputs.hugo-page }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Setup Hugo
-        uses: peaceiris/actions-hugo@v3
+        uses: peaceiris/actions-hugo@d1c81a15d4e6dca7086a17b9c2565cb70fd576bf # v3.3.0
         with:
           hugo-version: ${{ inputs.hugo-version }}
           extended: true
       - name: Update Hugo Modules
         run: hugo mod tidy
       - name: Setup Node for Hugo
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: 24
+          node-version: 26
       - name: Install Node Modules for Hugo
         run: |
           hugo mod npm pack
@@ -60,14 +65,14 @@ jobs:
       # The service account token is set on this step only.
       - name: Load GitHub credentials
         id: load-git-credentials
-        uses: 1password/load-secrets-action@v2
+        uses: 1password/load-secrets-action@70062d7a876d3eb6334754fa26efd2fbd90c32f2 # v5.0.1
         with:
           export-env: false
         env:
           OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.onepass_token }}
           GITHUB_TOKEN: ${{ inputs.github-token-path }}
       - name: Deploy Hugo Site
-        uses: peaceiris/actions-gh-pages@v4
+        uses: peaceiris/actions-gh-pages@84c30a85c19949d7eee79c4ff27748b70285e453 # v4.1.0
         with:
           github_token: ${{ steps.load-git-credentials.outputs.GITHUB_TOKEN }}
           publish_branch: gh-pages
@@ -78,13 +83,13 @@ jobs:
     if: ${{ inputs.mkdocs-page }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Setup Python for Mkdocs
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: ${{ inputs.python-version }}
       - name: Install Poetry
-        uses: abatilo/actions-poetry@v2
+        uses: abatilo/actions-poetry@3765cf608f2d4a72178a9fc5b918668e542b89b1 # v4.0.0
         with:
           poetry-version: ${{ inputs.poetry-version }}
       - name: Configure Poetry Virtual Environment
@@ -98,14 +103,14 @@ jobs:
       # The service account token is set on this step only.
       - name: Load GitHub credentials
         id: load-git-credentials
-        uses: 1password/load-secrets-action@v2
+        uses: 1password/load-secrets-action@70062d7a876d3eb6334754fa26efd2fbd90c32f2 # v5.0.1
         with:
           export-env: false
         env:
           OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.onepass_token }}
           GITHUB_TOKEN: ${{ inputs.github-token-path }}
       - name: Deploy Mkdocs Site
-        uses: peaceiris/actions-gh-pages@v4
+        uses: peaceiris/actions-gh-pages@84c30a85c19949d7eee79c4ff27748b70285e453 # v4.1.0
         with:
           github_token: ${{ steps.load-git-credentials.outputs.GITHUB_TOKEN }}
           publish_branch: gh-pages

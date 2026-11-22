@@ -37,7 +37,7 @@ inputs:
 # To report GitHub Actions status checks
 #  statuses: write
 # ===========================================================================
-# Use "ghcr.io/super-linter/super-linter:v8.5.0" when kubernetes-mode is true"
+# Use "ghcr.io/super-linter/super-linter:v8.7.0" when kubernetes-mode is true"
 
 runs:
   using: "composite"
@@ -46,7 +46,7 @@ runs:
     # repository being linted (an ESLint config is executable code), so this
     # action holds no secret beyond the job's own short-lived github.token.
     - name: Regular linter (Docker action)
-      uses: super-linter/super-linter/slim@v8.5.0
+      uses: super-linter/super-linter/slim@4ce20838b8ab83717e78138c5b3a1407148e0918 # v8.7.0
       if: ${{ inputs.kubernetes-mode != 'true' }}
       env:
         # To report GitHub Actions status checks
@@ -82,7 +82,7 @@ runs:
     # ---------- Python ----------
     - name: Python Linter (Docker action)
       if: ${{ inputs.kubernetes-mode != 'true' && inputs.python == 'true' }}
-      uses: super-linter/super-linter/slim@v8.5.0
+      uses: super-linter/super-linter/slim@4ce20838b8ab83717e78138c5b3a1407148e0918 # v8.7.0
       env:
         GITHUB_TOKEN: ${{ github.token }}
         VALIDATE_PYTHON_BLACK: true
@@ -103,7 +103,7 @@ runs:
     # ---------- JavaScript / TypeScript ----------
     - name: JavaScript Linting (Docker action)
       if: ${{ inputs.kubernetes-mode != 'true' && inputs.javascript == 'true' }}
-      uses: super-linter/super-linter/slim@v8.5.0
+      uses: super-linter/super-linter/slim@4ce20838b8ab83717e78138c5b3a1407148e0918 # v8.7.0
       env:
         GITHUB_TOKEN: ${{ github.token }}
         VALIDATE_JAVASCRIPT_ES: true
@@ -128,7 +128,7 @@ runs:
     # ---------- LaTeX ----------
     - name: LaTeX Linting (Docker action)
       if: ${{ inputs.kubernetes-mode != 'true' && inputs.latex == 'true' }}
-      uses: super-linter/super-linter/slim@v8.5.0
+      uses: super-linter/super-linter/slim@4ce20838b8ab83717e78138c5b3a1407148e0918 # v8.7.0
       env:
         GITHUB_TOKEN: ${{ github.token }}
         VALIDATE_LATEX: true

@@ -4,6 +4,11 @@ on:
   release:
     types: [published]
 
+# The job token is read-only here. Everything that writes uses a token read
+# from 1Password, so the job's own token never needs more than this.
+permissions:
+  contents: read
+
 jobs:
   blog-creating:
     # runs-on: ubuntu-latest
@@ -12,7 +17,7 @@ jobs:
       image: ubuntu:24.04
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
       - uses: ./.github/actions/create-blog-in-hugo

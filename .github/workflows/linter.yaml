@@ -28,13 +28,13 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           # super-linter needs the full git history to get the
           # list of files that changed across commits
           fetch-depth: 0
       - name: Cache Super-Linter data
-        uses: actions/cache@v4
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: /tmp/super-linter-cache
           key: ${{ runner.os }}-docker-${{ github.ref_name }}
@@ -44,7 +44,7 @@ jobs:
       # No 1Password here on purpose: linters run configuration taken from the
       # repository being linted, so this job holds only its own github.token.
       - name: Regular linter
-        uses: super-linter/super-linter/slim@v7.2.1
+        uses: super-linter/super-linter/slim@4ce20838b8ab83717e78138c5b3a1407148e0918 # v8.7.0
         env:
           # To report GitHub Actions status checks
           GITHUB_TOKEN: ${{ github.token }}
@@ -60,7 +60,7 @@ jobs:
 
       - name: Python Linter
         if: ${{ inputs.python }}
-        uses: super-linter/super-linter/slim@v7.2.1
+        uses: super-linter/super-linter/slim@4ce20838b8ab83717e78138c5b3a1407148e0918 # v8.7.0
         env:
           GITHUB_TOKEN: ${{ github.token }}
           VALIDATE_PYTHON_BLACK: true

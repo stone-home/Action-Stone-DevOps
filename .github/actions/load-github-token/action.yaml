@@ -29,7 +29,7 @@ runs:
     - name: Load Secret
       id: load-secret
       if: ${{ inputs.kubernetes-mode != 'true' }}
-      uses: 1password/load-secrets-action@v2
+      uses: 1password/load-secrets-action@70062d7a876d3eb6334754fa26efd2fbd90c32f2 # v5.0.1
       with:
         export-env: false # Keep false to use outputs
       env:
@@ -40,6 +40,7 @@ runs:
       if: ${{ inputs.kubernetes-mode == 'true' }}
       shell: bash
       run: |
+        set -euo pipefail
         # 1. Check if 'op' is installed
         if ! command -v op &> /dev/null; then
           echo "::error::1Password CLI (op) not found. Please install it or use a runner image that includes it."
@@ -48,14 +49,26 @@ runs:
 
         # 2. Fetch the secret using the CLI
         # We use the 'read' command which handles 'op://' URIs directly
-        echo "Fetching secret from ${{ inputs.secret-path }}..."
+        echo "Fetching secret from ${SECRET_PATH}..."
+        TOKEN_VALUE="$(op read "$SECRET_PATH")"
 
-        TOKEN_VALUE=$(op read "${{ inputs.secret-path }}")
+        # 3. Mask the secret so it doesn't leak in logs. add-mask works per
+        # line, so every line of a multi-line secret is masked on its own.
+        while IFS= read -r line; do
+          if [ -n "$line" ]; then
+            echo "::add-mask::${line}"
+          fi
+        done <<< "$TOKEN_VALUE"
 
-        # 3. Mask the secret so it doesn't leak in logs
-        echo "::add-mask::$TOKEN_VALUE"
-
-        # 4. Set the output for the action
-        echo "ONEPASS_TOKEN=$TOKEN_VALUE" >> $GITHUB_OUTPUT
+        # 4. Set the output for the action. The random delimiter keeps a
+        # multi-line value from ending the block early or adding other outputs.
+        delim="ghadelim_$(od -An -N16 -tx1 /dev/urandom | tr -d ' \n')"
+        {
+          echo "ONEPASS_TOKEN<<${delim}"
+          printf '%s\n' "$TOKEN_VALUE"
+          echo "${delim}"
+        } >> "$GITHUB_OUTPUT"
       env:
         OP_SERVICE_ACCOUNT_TOKEN: ${{ inputs.onepass-token}}
+        # Read as "$SECRET_PATH", never expanded into the script.
+        SECRET_PATH: ${{ inputs.secret-path }}

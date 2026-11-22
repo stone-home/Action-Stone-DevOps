@@ -20,7 +20,7 @@ project or Docker flags are false, the workflow runs `publish-basic`.
 | `latex-project` | boolean | `false` | Run `publish-latex` |
 | `docker-push` | boolean | `false` | Run `docker-push` |
 | `git-token-path` | string | Stone Home GitHub PAT path | GitHub release or push credential URI |
-| `nodejs-version` | string | `24` | Node.js version for Node and LaTeX jobs |
+| `nodejs-version` | string | `26` | Node.js version for Node and LaTeX jobs |
 | `python-version` | string | `3.11` | Python version |
 | `poetry-version` | string | `1.8.5` | Poetry version |
 | `version-id` | string | empty | Python version branch and package version |
@@ -28,8 +28,8 @@ project or Docker flags are false, the workflow runs `publish-basic`.
 | `pypi-token-path` | string | Stone Home PyPI token path | PyPI credential URI |
 | `kubernetes-mode` | boolean | `false` | Select ARC paths inside composite actions |
 | `docker-registry` | string | `ghcr` | `ghcr` or `dockerhub` |
-| `docker-hub-username` | string | empty | Forwarded as the registry username for either registry |
-| `docker-hub-password-path` | string | empty | Forwarded as the registry token URI for either registry |
+| `docker-hub-username` | string | empty | Forwarded as the registry username for either registry; optional for GHCR with the job token |
+| `docker-hub-password-path` | string | empty | Forwarded as the registry token URI for either registry. Empty means: GHCR uses the job's `github.token`, Docker Hub uses the Stone Home Docker PAT path |
 | `docker-image-name` | string | empty | Image reference without tag |
 | `dockerfile` | string | `Dockerfile` | Dockerfile path |
 | `docker-context` | string | `.` | Docker build context |
@@ -39,8 +39,11 @@ project or Docker flags are false, the workflow runs `publish-basic`.
 |---|---:|---|
 | `onepass-token` | Yes | 1Password service-account token |
 
-The workflow grants its jobs `contents`, issues, pull requests, and OIDC write
-permissions, but the caller must allow the same permissions.
+The workflow is read-only by default and each job asks only for what it uses:
+`contents: write` for the release jobs, plus `id-token: write` for the npm job
+and `packages: write` for the Docker job. The caller must allow at least those.
+Releases and issue or pull-request comments go through the 1Password token, so
+the job token needs no `issues` or `pull-requests` permission.
 
 ### Basic release
 
@@ -81,7 +84,7 @@ jobs:
     uses: stone-home/Action-Stone-DevOps/.github/workflows/w-v2-release.yaml@trunk
     with:
       nodejs-project: true
-      nodejs-version: "24"
+      nodejs-version: "26"
     secrets:
       onepass-token: ${{ secrets.OP_ACCOUNT_TOKEN }}
 ```
@@ -97,7 +100,7 @@ jobs:
     uses: stone-home/Action-Stone-DevOps/.github/workflows/w-v2-release.yaml@trunk
     with:
       latex-project: true
-      nodejs-version: "24"
+      nodejs-version: "26"
     secrets:
       onepass-token: ${{ secrets.OP_ACCOUNT_TOKEN }}
 ```
@@ -115,8 +118,6 @@ jobs:
     with:
       docker-push: true
       docker-registry: ghcr
-      docker-hub-username: stone-home
-      docker-hub-password-path: op://DevOps/Docker PAT - Git Action/credential
       docker-image-name: ghcr.io/stone-home/example
       docker-tags: latest,1.4.0
     secrets:
@@ -124,10 +125,11 @@ jobs:
 ```
 
 Despite their names, `docker-hub-username` and
-`docker-hub-password-path` are forwarded for both registries. The path defaults
-to an empty string at workflow level, so set it explicitly. In Kubernetes mode
-the selected runner must already expose `/kaniko/executor`; the workflow does
-not add a Kaniko container.
+`docker-hub-password-path` are forwarded for both registries. With the path left
+empty, GHCR pushes use the job's own `github.token` and Docker Hub pushes use
+the Stone Home Docker PAT path; Docker Hub still needs the username. In
+Kubernetes mode the selected runner must already expose `/kaniko/executor`; the
+workflow does not add a Kaniko container.
 
 ## `release.yaml`
 

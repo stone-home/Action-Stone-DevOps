@@ -11,23 +11,26 @@ on:
         required: true
         type: string
         default: "1.8.5"
+permissions:
+  contents: read # checkout only
+
 jobs:
   ut:
     runs-on: ubuntu-latest
     steps:
       # 1. Checkout the repository
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
       # 2. Set up Python environment
       - name: Set up Python ${{ inputs.python-version }}
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: ${{ inputs.python-version }}
       # 3. Run poetry image
       - name: Install poetry
-        uses: abatilo/actions-poetry@v2
+        uses: abatilo/actions-poetry@3765cf608f2d4a72178a9fc5b918668e542b89b1 # v4.0.0
         with:
           poetry-version: ${{ inputs.poetry-version }}
       # 4. Setup a local virtual environment (if no poetry.toml file)
@@ -36,7 +39,7 @@ jobs:
           poetry config virtualenvs.create true --local
           poetry config virtualenvs.in-project true --local
       # 5. Cache the virtual environment based on the dependencies lock file
-      - uses: actions/cache@v3
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         name: Define a cache for the virtual environment based on the dependencies lock file
         with:
           path: ./.venv
